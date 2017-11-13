@@ -8,6 +8,7 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 module Reflex.Helpers (
     buttonWithId
+  , buttonWithClass
   , displayDivWithId
   , buttonDynAttr
   ) where
@@ -24,6 +25,15 @@ buttonWithId ::
   m (Event t ())
 buttonWithId eid label = do
   (e, _) <- elAttr' "button" ("id" =: eid) $ text label
+  pure $ domEvent Click e
+
+buttonWithClass ::
+  MonadWidget t m =>
+  Text ->
+  Text ->
+  m (Event t ())
+buttonWithClass eclass label = do
+  (e, _) <- elAttr' "button" ("class" =: eclass) $ text label
   pure $ domEvent Click e
 
 displayDivWithId ::

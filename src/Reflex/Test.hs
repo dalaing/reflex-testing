@@ -14,10 +14,13 @@ Portability : non-portable
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Reflex.Test (
-    simulateClick
+    classElementsSingle
+  , classElementsMultiple
+  , classElementsIx
+  , simulateClick
   , readOutput'
   , readOutput
-  , TestingEnv
+  , TestingEnv(..)
   , mkTestingEnv
   , mkTestingEnvWithHead
   , resetTest
@@ -34,7 +37,7 @@ module Reflex.Test (
   , propertyJSM
   ) where
 
-import Control.Monad (void, unless)
+import Control.Monad (void, unless, forM)
 import Data.Maybe (isJust)
 import Text.Read (readMaybe)
 
@@ -49,27 +52,80 @@ import Control.Monad.STM hiding (check)
 import Control.Concurrent.STM hiding (check)
 
 import Control.Monad.Trans (MonadIO, liftIO, lift)
-import Control.Monad.Reader (MonadReader, ReaderT, asks, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, asks, runReaderT)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Morph (hoist)
 
 import GHCJS.DOM
 import GHCJS.DOM.Document
 import GHCJS.DOM.NonElementParentNode
-import GHCJS.DOM.Element
+import GHCJS.DOM.Element hiding (getElementsByClassName)
 import GHCJS.DOM.HTMLElement
+import GHCJS.DOM.HTMLCollection
 import GHCJS.DOM.Node
 import GHCJS.DOM.Types (MonadJSM, JSM, askJSM, castTo)
 import Language.Javascript.JSaddle.Monad (runJSaddle)
 import Language.Javascript.JSaddle.Types (MonadJSM(..))
 
-import Reflex.Dom.Core hiding (Command, Reset)
+import Reflex.Dom.Core hiding (Command, Reset, Element)
 import Reflex.Dom (run)
 
 import Hedgehog
 import Hedgehog.Internal.Property
 
 import Reflex.Helpers
+
+classElementsSingle ::
+  ( MonadReader Document m
+  , MonadJSM m
+  ) =>
+  Text ->
+  (Element -> MaybeT m a) ->
+  MaybeT m a
+classElementsSingle eclass f = do
+  doc <- ask
+  c <- lift $ getElementsByClassName doc eclass
+  l <- lift $ getLength c
+  if (l /= 1)
+  then MaybeT . pure $ Nothing
+  else do
+    e <- MaybeT $ item c 0
+    f e
+
+classElementsMultiple ::
+  ( MonadReader Document m
+  , MonadJSM m
+  ) =>
+  Text ->
+  (Element -> MaybeT m a) ->
+  MaybeT m [a]
+classElementsMultiple eclass f = do
+  doc <- ask
+  c <- lift $ getElementsByClassName doc eclass
+  l <- lift $ getLength c
+  if (l == 0)
+  then pure []
+  else forM [0..l-1] $ \i -> do
+    e <- MaybeT $ item c i
+    f e
+
+classElementsIx ::
+  ( MonadReader Document m
+  , MonadJSM m
+  ) =>
+  Word ->
+  Text ->
+  (Element -> MaybeT m a) ->
+  MaybeT m a
+classElementsIx i eclass f = do
+  doc <- ask
+  c <- lift $ getElementsByClassName doc eclass
+  l <- lift $ getLength c
+  if (i < 0 || l <= i)
+  then MaybeT . pure $ Nothing
+  else do
+    e <- MaybeT $ item c i
+    f e
 
 simulateClick ::
   ( MonadReader (TestingEnv a) m
@@ -131,14 +187,16 @@ mkTestingEnv f b = do
     doc <- currentDocumentUnchecked
     body <- getBodyUnchecked doc
     attachWidgetWithActions
-      (liftIO . atomically $ putTMVar commitTMVar ())
+      (pure ())
+      -- (liftIO . atomically $ putTMVar commitTMVar ())
       (f doc >>= liftIO . atomically . writeTQueue renderQueue)
       body
       jsSing
-      (testWidget b)
+      b -- (testWidget b)
     pure doc
 
-  liftIO . atomically . takeTMVar $ commitTMVar
+  --liftIO . putStrLn $ "waiting for commit"
+  -- liftIO . atomically . takeTMVar $ commitTMVar
   liftIO . atomically . readTQueue $ renderQueue
 
   pure $ TestingEnv renderQueue doc
