@@ -7,21 +7,23 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Counter.Test (
     counterStateMachine
   ) where
 
 import Data.Proxy (Proxy(..))
 
-import Control.Monad.Trans (lift)
-import Control.Monad.Reader (runReaderT)
+import Control.Monad.Trans (lift, MonadIO)
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import Control.Monad.Morph (hoist)
 
 import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
 
-import GHCJS.DOM.Types (JSM)
+import GHCJS.DOM.Types (JSM, MonadJSM, liftJSM, askJSM)
 
 import Reflex.Test
 import Counter
@@ -51,18 +53,19 @@ instance HTraversable Clear where
 
 s_reset ::
   ( Monad n
+  , MonadTest m
+  , MonadReader (TestingEnv (Maybe Int)) m
+  , MonadJSM m
   ) =>
-  TestingEnv (Maybe Int) ->
-  Command n (TestT (GenT JSM)) ModelState
-s_reset env =
+  Command n m ModelState
+s_reset =
   let
     gen st =
       case st of
         Setup -> Just $ pure Reset
         _ -> Nothing
-    execute Reset = lift . lift . flip runReaderT env $ do
-      _ <- simulateClick "reset-btn"
-      waitForRender
+    execute Reset =
+      resetTest
   in
     Command gen execute [
         Update $ \_s Reset _o ->
@@ -74,16 +77,18 @@ s_reset env =
 
 s_add ::
   ( Monad n
+  , MonadTest m
+  , MonadReader (TestingEnv (Maybe Int)) m
+  , MonadJSM m
   ) =>
-  TestingEnv (Maybe Int) ->
-  Command n (TestT (GenT JSM)) ModelState
-s_add env =
+  Command n m ModelState
+s_add =
   let
     gen st =
       case st of
         Running _ -> Just $ pure Add
         _ -> Nothing
-    execute Add = lift . lift . flip runReaderT env $ do
+    execute Add = do
       _ <- simulateClick "add-btn"
       waitForRender
   in
@@ -105,16 +110,18 @@ s_add env =
 
 s_clear ::
   ( Monad n
+  , MonadTest m
+  , MonadReader (TestingEnv (Maybe Int)) m
+  , MonadJSM m
   ) =>
-  TestingEnv (Maybe Int) ->
-  Command n (TestT (GenT JSM)) ModelState
-s_clear env =
+  Command n m ModelState
+s_clear =
   let
     gen st =
       case st of
         Running _ -> Just $ pure Clear
         _ -> Nothing
-    execute Clear = lift . lift . flip runReaderT env $ do
+    execute Clear = do
       _ <- simulateClick "clear-btn"
       waitForRender
   in
@@ -143,11 +150,12 @@ initialState =
 counterStateMachine ::
   PropertyT JSM ()
 counterStateMachine = do
-  env <- lift $ mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") (testWidget counter)
+  env <- lift $ mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") counter
+  let hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
   actions <- forAll $
     Gen.sequential (Range.linear 1 100) initialState [
-      s_reset env
-    , s_add env
-    , s_clear env
+      hoistEnv s_reset
+    , hoistEnv s_add
+    , hoistEnv s_clear
     ]
   PropertyT $ executeSequential initialState actions

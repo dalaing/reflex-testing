@@ -31,23 +31,20 @@ import Counter
 
 testRender ::
   ReaderT (TestingEnv (Maybe Int)) JSM ()
-testRender = do
-  simulateClick "reset-btn"
-  waitForCondition (== (Just 0))
+testRender =
+  void resetTest
 
 testAdd ::
   ReaderT (TestingEnv (Maybe Int)) JSM ()
 testAdd = do
-  simulateClick "reset-btn"
-  _ <- waitForRender
+  resetTest
   simulateClick "add-btn"
   waitForCondition (== (Just 1))
 
 testClear ::
   ReaderT (TestingEnv (Maybe Int)) JSM ()
 testClear = do
-  simulateClick "reset-btn"
-  _ <- waitForRender
+  resetTest
   simulateClick "add-btn"
   simulateClick "clear-btn"
   waitForCondition (== (Just 0))
@@ -63,7 +60,7 @@ testLoop ::
   TMVar () ->
   IO ()
 testLoop q t = run . void $ do
-  env <- mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") (testWidget counter)
+  env <- mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") counter
   flip runReaderT env $ do
     forever $ do
       bt <- liftIO . atomically $ readTQueue q

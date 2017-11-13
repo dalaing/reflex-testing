@@ -23,13 +23,22 @@ library
                      , Counter.Test
                      , Counter.Bench
                      , Todo
+                     , Todo.Add
+                     , Todo.MarkAllComplete
+                     , Todo.ClearComplete
+                     , Todo.Item
+                     , Todo.Item.Remove
+                     , Todo.Item.Complete
+                     , Todo.Item.Text
                      , Todo.Test
   build-depends:       base >=4.9 && <4.10
                      , transformers
                      , mtl
                      , text
+                     , containers
                      , stm
                      , mmorph
+                     , lens
                      , reflex
                      , reflex-dom-core
                      , jsaddle

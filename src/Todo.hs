@@ -6,8 +6,11 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings#-}
+{-# LANGUAGE RecursiveDo #-}
 module Todo (
   ) where
+
+import Control.Monad (void)
 
 import Control.Lens
 
@@ -16,47 +19,23 @@ import qualified Data.Text as Text
 
 import Reflex.Dom.Core
 
-remove ::
-  MonadWidget t m =>
-  m (Event t ())
-remove = do
-  (e, _) <- elClass "button" "remove-btn" $ text "Remove"
-  pure $ domEvent Click e
-
-complete
-  MonadWidget t m =>
-  Bool ->
-  Event t Bool ->
-  Event t () ->
-  m (Dynamic t Bool, Event t ())
-complete initial eMarkAllComplete eClearComplete = do
-  cb <- checkbox initial $ def
-    & checkboxConfig_setValue .~ eMarkAllComplete
-    & checkboxConfig_attributes .~ pure ("class" =: "complete-cb")
-
-  let
-    dComplete = cb ^. checkbox_value
-    eRemove = gate (current dComplete) eClearComplete
-
-  pure (dComplete, eRemove)
-
 textRead ::
   MonadWidget t m =>
   Text ->
   m (Event t ())
 textRead initial = do
-  (e, _) <- elClass "div" "text-read" $ text initial
-  pure $ domEvent Dblclick e
+  (e, _) <- elClass' "div" "text-read" $ text initial
+  pure . void $ domEvent Dblclick e
 
 textWrite ::
   MonadWidget t m =>
   Text ->
-  m (Event t (), Event Text)
-textWrite initial = do
+  m (Event t (), Event t Text)
+textWrite initial = mdo
   ti <- textInput $ def
     & textInputConfig_attributes .~ pure ("class" =: "text-write")
     & textInputConfig_initialValue .~ initial
-    & textInputConfig_setValue .~ initial <$ eRollback
+    & textInputConfig_setValue .~ (initial <$ eRollback)
 
   let
     bValue = current . fmap Text.strip $ ti ^. textInput_value
@@ -75,7 +54,17 @@ textWrite initial = do
     eAtEnter = bValue <@ eEnter
 
     eCommit = ffilter (not . Text.null) eAtEnter
-    eRemove = ffilter Text.null eConfirmValue
-    eRollback = eEscape
+    eRemove = void $ ffilter Text.null eAtEnter
+    eRollback = void eEscape
 
   pure (eRemove, eCommit)
+
+data TodoItem =
+  TodoItem {
+    tiComplete :: Bool
+  , tiText :: Text
+  }
+
+-- workflow version and hide / show version
+
+

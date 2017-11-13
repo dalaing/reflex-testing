@@ -7,21 +7,32 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Reflex.Test (
     simulateClick
   , readOutput'
   , readOutput
-  , testWidget
   , TestingEnv
   , mkTestingEnv
+  , mkTestingEnvWithHead
+  , resetTest
   , waitForRender
   , waitForCondition
+  , hoistCommand
+  , TestJSM(..)
   , propertyJSM
   ) where
 
 import Control.Monad (void, unless)
 import Data.Maybe (isJust)
 import Text.Read (readMaybe)
+
+import Data.Typeable (Typeable)
+
+import Control.Lens
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -42,8 +53,9 @@ import GHCJS.DOM.HTMLElement
 import GHCJS.DOM.Node
 import GHCJS.DOM.Types (MonadJSM, JSM, askJSM, castTo)
 import Language.Javascript.JSaddle.Monad (runJSaddle)
+import Language.Javascript.JSaddle.Types (MonadJSM(..))
 
-import Reflex.Dom.Core
+import Reflex.Dom.Core hiding (Command)
 import Reflex.Dom (run)
 
 import Hedgehog
@@ -52,8 +64,11 @@ import Hedgehog.Internal.Property
 import Reflex.Helpers
 
 simulateClick ::
+  ( MonadReader (TestingEnv a) m
+  , MonadJSM m
+  ) =>
   Text ->
-  ReaderT (TestingEnv a) JSM Bool
+  m Bool
 simulateClick eid = do
   doc <- asks teDocument
   m <- runMaybeT $ do
@@ -100,7 +115,7 @@ mkTestingEnv ::
   (Document -> JSM a) ->
   Widget () () ->
   JSM (TestingEnv a)
-mkTestingEnv f w = do
+mkTestingEnv f b = do
   commitTMVar <- liftIO . atomically $ newEmptyTMVar
   renderQueue <- liftIO . atomically $ newTQueue
 
@@ -112,13 +127,49 @@ mkTestingEnv f w = do
       (f doc >>= liftIO . atomically . writeTQueue renderQueue)
       body
       jsSing
-      w
+      (testWidget b)
     pure doc
 
   liftIO . atomically . takeTMVar $ commitTMVar
   liftIO . atomically . readTQueue $ renderQueue
 
   pure $ TestingEnv renderQueue doc
+
+mkTestingEnvWithHead ::
+  (Document -> JSM a) ->
+  Widget () () ->
+  Widget () () ->
+  JSM (TestingEnv a)
+mkTestingEnvWithHead f h b = do
+  commitTMVar <- liftIO . atomically $ newEmptyTMVar
+  renderQueue <- liftIO . atomically $ newTQueue
+
+  doc <- withJSContextSingletonMono $ \jsSing -> do
+    doc <- currentDocumentUnchecked
+    headElement <- getHeadUnchecked doc
+    attachWidget headElement jsSing h
+    body <- getBodyUnchecked doc
+    attachWidgetWithActions
+      (liftIO . atomically $ putTMVar commitTMVar ())
+      (f doc >>= liftIO . atomically . writeTQueue renderQueue)
+      body
+      jsSing
+      (testWidget b)
+    pure doc
+
+  liftIO . atomically . takeTMVar $ commitTMVar
+  liftIO . atomically . readTQueue $ renderQueue
+
+  pure $ TestingEnv renderQueue doc
+
+resetTest ::
+  ( MonadReader (TestingEnv a) m
+  , MonadJSM m
+  ) =>
+  m a
+resetTest = do
+  simulateClick "reset-btn"
+  waitForRender
 
 waitForRender ::
   ( MonadReader (TestingEnv a) m
@@ -139,6 +190,59 @@ waitForCondition p = do
   x <- waitForRender
   unless (p x) $
     waitForCondition p
+
+hoistCommand ::
+  (forall x. m x -> m' x) ->
+  Command n m s ->
+  Command n m' s
+hoistCommand f (Command gen execute callbacks) =
+  Command gen (f . execute) callbacks
+
+prismCallback ::
+  (forall v. Prism' (s v) (t v)) ->
+  Callback i o t ->
+  Callback i o s
+prismCallback p (Require f) =
+  Require $ \st i ->
+    case preview p st of
+      Just st' -> f st' i
+      Nothing -> False
+prismCallback p (Update f) =
+  Update $ \st i v ->
+    case preview p st of
+      Just st' -> review p $ f st' i v
+      Nothing -> st
+prismCallback p (Ensure f) =
+  Ensure $ \stb sta i o ->
+    case (preview p sta, preview p stb) of
+      (Just sta' , Just stb') -> f sta' stb' i o
+      _ -> pure ()
+
+prismCommand ::
+  (forall v. Prism' (s v) (t v)) ->
+  Command n m t ->
+  Command n m s
+prismCommand p (Command gen execute callbacks) =
+  let
+    gen' st = case preview p st of
+      Just st' -> gen st'
+      Nothing -> Nothing
+    callbacks' = Require (\st _ -> isJust $ preview p st) : fmap (prismCallback p) callbacks
+  in
+    Command
+      gen'
+      execute
+      callbacks'
+
+newtype TestJSM a =
+  TestJSM { unTestJSM :: JSM a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadJSM)
+
+instance MonadJSM (TestT (GenT (ReaderT r TestJSM))) where
+  liftJSM' = lift . lift . lift . TestJSM
+
+instance MonadJSM (TestT (GenT TestJSM)) where
+  liftJSM' = lift . lift . TestJSM
 
 propertyJSM ::
   PropertyT JSM () ->

@@ -9,9 +9,11 @@ Portability : non-portable
 module Reflex.Helpers (
     buttonWithId
   , displayDivWithId
+  , buttonDynAttr
   ) where
 
 import Data.Text (Text)
+import Data.Map (Map)
 
 import Reflex.Dom.Core
 
@@ -34,3 +36,12 @@ displayDivWithId ::
 displayDivWithId eid d =
   elAttr "div" ("id" =: eid) $
     display d
+
+buttonDynAttr ::
+  MonadWidget t m =>
+  Dynamic t (Map Text Text) ->
+  Text ->
+  m (Event t ())
+buttonDynAttr dAttrs label = do
+  (e, _) <- elDynAttr' "button" dAttrs $ text label
+  pure $ domEvent Click e
