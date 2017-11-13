@@ -29,15 +29,8 @@ import Reflex.Test
 import Counter
 
 data ModelState (v :: * -> *) =
-    Setup
-  | Running Int
+  ModelState Int
   deriving (Eq, Ord, Show)
-
-data Reset (v :: * -> *) = Reset
-  deriving (Eq, Show)
-
-instance HTraversable Reset where
-  htraverse _ Reset = pure Reset
 
 data Add (v :: * -> *) = Add
   deriving (Eq, Show)
@@ -51,30 +44,6 @@ data Clear (v :: * -> *) = Clear
 instance HTraversable Clear where
   htraverse _ Clear = pure Clear
 
-s_reset ::
-  ( Monad n
-  , MonadTest m
-  , MonadReader (TestingEnv (Maybe Int)) m
-  , MonadJSM m
-  ) =>
-  Command n m ModelState
-s_reset =
-  let
-    gen st =
-      case st of
-        Setup -> Just $ pure Reset
-        _ -> Nothing
-    execute Reset =
-      resetTest
-  in
-    Command gen execute [
-        Update $ \_s Reset _o ->
-            Running 0
-      , Ensure $ \_before after Reset b -> do
-          Running 0 === after
-          Just 0 === b
-    ]
-
 s_add ::
   ( Monad n
   , MonadTest m
@@ -84,28 +53,17 @@ s_add ::
   Command n m ModelState
 s_add =
   let
-    gen st =
-      case st of
-        Running _ -> Just $ pure Add
-        _ -> Nothing
+    gen _ =
+      Just $ pure Add
     execute Add = do
       _ <- simulateClick "add-btn"
       waitForRender
   in
     Command gen execute [
-        Require $ \s Add ->
-            case s of
-              Running _ -> True
-              _ -> False
-      , Update $ \s Add _o ->
-          case s of
-            Running c -> Running (c + 1)
-            Setup -> Setup
-      , Ensure $ \_before after Add b -> do
-          case after of
-            Running c -> do
-              Just c === b
-            _ -> pure ()
+        Update $ \(ModelState c) Add _o ->
+          ModelState (c + 1)
+      , Ensure $ \_before (ModelState c) Add b -> do
+         Just c === b
     ]
 
 s_clear ::
@@ -117,35 +75,24 @@ s_clear ::
   Command n m ModelState
 s_clear =
   let
-    gen st =
-      case st of
-        Running _ -> Just $ pure Clear
-        _ -> Nothing
+    gen _ =
+      Just $ pure Clear
     execute Clear = do
       _ <- simulateClick "clear-btn"
       waitForRender
   in
     Command gen execute [
-        Require $ \s Clear ->
-            case s of
-              Running _ -> True
-              _ -> False
-      , Update $ \s Clear _o ->
-          case s of
-            Running _ -> Running 0
-            Setup -> Setup
-      , Ensure $ \_before after Clear b -> do
-          case after of
-            Running c -> do
-              Just 0 === b
-              0 === c
-            _ -> pure ()
+        Update $ \_s Clear _o ->
+          ModelState 0
+      , Ensure $ \_before (ModelState c) Clear b -> do
+          Just 0 === b
+          0 === c
     ]
 
 initialState ::
   ModelState v
 initialState =
-  Setup
+  ModelState 0
 
 counterStateMachine ::
   PropertyT JSM ()
@@ -153,9 +100,9 @@ counterStateMachine = do
   env <- lift $ mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") counter
   let hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
   actions <- forAll $
-    Gen.sequential (Range.linear 1 100) initialState [
-      hoistEnv s_reset
-    , hoistEnv s_add
-    , hoistEnv s_clear
+    Gen.sequential (Range.linear 1 100) initialResettableState [
+      hoistEnv $ s_reset initialState
+    , hoistEnv $ prismCommand _Running s_add
+    , hoistEnv $ prismCommand _Running s_clear
     ]
-  PropertyT $ executeSequential initialState actions
+  PropertyT $ executeSequential initialResettableState actions

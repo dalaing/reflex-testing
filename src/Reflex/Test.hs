@@ -11,6 +11,8 @@ Portability : non-portable
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Reflex.Test (
     simulateClick
   , readOutput'
@@ -22,6 +24,12 @@ module Reflex.Test (
   , waitForRender
   , waitForCondition
   , hoistCommand
+  , ResettableState
+  , initialResettableState
+  , _Setup
+  , _Running
+  , s_reset
+  , prismCommand
   , TestJSM(..)
   , propertyJSM
   ) where
@@ -55,7 +63,7 @@ import GHCJS.DOM.Types (MonadJSM, JSM, askJSM, castTo)
 import Language.Javascript.JSaddle.Monad (runJSaddle)
 import Language.Javascript.JSaddle.Types (MonadJSM(..))
 
-import Reflex.Dom.Core hiding (Command)
+import Reflex.Dom.Core hiding (Command, Reset)
 import Reflex.Dom (run)
 
 import Hedgehog
@@ -233,6 +241,49 @@ prismCommand p (Command gen execute callbacks) =
       gen'
       execute
       callbacks'
+
+data ResettableState st (v :: * -> *) =
+    Setup
+  | Running (st v)
+  deriving (Eq, Ord, Show)
+
+makePrisms ''ResettableState
+
+initialResettableState :: ResettableState st v
+initialResettableState = Setup
+
+data Reset (v :: * -> *) = Reset
+  deriving (Eq, Show)
+
+instance HTraversable Reset where
+  htraverse _ Reset = pure Reset
+
+s_reset ::
+  ( Monad n
+  , MonadTest m
+  , MonadReader (TestingEnv a) m
+  , MonadJSM m
+  , Typeable a
+  , Show (st Concrete)
+  , Eq (st Concrete)
+  ) =>
+  (forall v. st v) ->
+  Command n m (ResettableState st)
+s_reset initial =
+  let
+    gen st =
+      case preview _Setup st of
+        Just _ -> Just $ pure Reset
+        _ -> Nothing
+    execute Reset =
+      resetTest
+  in
+    Command gen execute [
+        Update $ \_s Reset _o ->
+          review _Running initial
+      , Ensure $ \_before after Reset _b ->
+          review _Running initial === after
+    ]
 
 newtype TestJSM a =
   TestJSM { unTestJSM :: JSM a }
