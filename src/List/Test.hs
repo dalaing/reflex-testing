@@ -225,9 +225,12 @@ s_type =
     Command gen execute [
       Update $ \s (Type t) _o ->
           s & msText %~ (`Text.append` t)
-    , Ensure $ \_before after (Type _) b ->
+    , Ensure $ \before after (Type _) b -> do
         -- check that the size of the text grows
+        assert $ before ^. msText . to Text.length <= after ^. msText . to Text.length
         -- check that the list items stay the same
+        assert $ before ^. msItems . to Seq.length == after ^. msItems . to Seq.length
+        -- check that the state is in sync
         Just after === b
     ]
 
@@ -254,9 +257,12 @@ s_add =
     , Update $ \s Add _o ->
           s & msItems %~ (\i -> i Seq.|> (s ^. msText))
             & msText .~ ""
-    , Ensure $ \_before after Add b ->
+    , Ensure $ \before after Add b -> do
         -- check that the text becomes empty
+        assert . Text.null $ after ^. msText
         -- check that the size of the list grows
+        assert $ before ^. msItems . to Seq.length <= after ^. msItems . to Seq.length
+        -- check that the state is in sync
         Just after === b
     ]
 
@@ -286,8 +292,10 @@ s_remove =
         0 <= i && i < s ^. msItems . to Seq.length
     , Update $ \s (Remove i) _o ->
         s & msItems %~ \s -> (Seq.take i s) Seq.>< (Seq.drop (i + 1) s)
-    , Ensure $ \_before after (Remove _) b ->
+    , Ensure $ \before after (Remove _) b -> do
         -- check that the size of the list shrinks
+        assert $ before ^. msItems . to Seq.length >= after ^. msItems . to Seq.length
+        -- check that the state is in sync
         Just after === b
     ]
 
