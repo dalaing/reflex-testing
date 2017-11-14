@@ -40,6 +40,7 @@ library
                      , containers
                      , stm
                      , mmorph
+                     , aeson
                      , lens
                      , reflex
                      , reflex-dom-core
@@ -51,3 +52,4 @@ library
                      , criterion
   hs-source-dirs:      src
   default-language:    Haskell2010
+

@@ -13,6 +13,8 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Test (
     classElementsSingle
   , classElementsMultiple
@@ -35,6 +37,7 @@ module Reflex.Test (
   , prismCommand
   , TestJSM(..)
   , propertyJSM
+  , GetDocument(..)
   ) where
 
 import Control.Monad (void, unless, forM)
@@ -75,15 +78,33 @@ import Hedgehog.Internal.Property
 
 import Reflex.Helpers
 
+data TestingEnv a =
+  TestingEnv {
+    _teQueue :: TQueue a
+  , _teDocument :: Document
+  }
+
+makeClassy ''TestingEnv
+
+class GetDocument d where
+  document :: Lens' d Document
+
+instance GetDocument Document where
+  document = id
+
+instance GetDocument (TestingEnv a) where
+  document = teDocument
+
 classElementsSingle ::
-  ( MonadReader Document m
+  ( GetDocument r
+  , MonadReader r m
   , MonadJSM m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
   MaybeT m a
 classElementsSingle eclass f = do
-  doc <- ask
+  doc <- view document
   c <- lift $ getElementsByClassName doc eclass
   l <- lift $ getLength c
   if (l /= 1)
@@ -93,14 +114,15 @@ classElementsSingle eclass f = do
     f e
 
 classElementsMultiple ::
-  ( MonadReader Document m
+  ( GetDocument r
+  , MonadReader r m
   , MonadJSM m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
   MaybeT m [a]
 classElementsMultiple eclass f = do
-  doc <- ask
+  doc <- view document
   c <- lift $ getElementsByClassName doc eclass
   l <- lift $ getLength c
   if (l == 0)
@@ -110,7 +132,8 @@ classElementsMultiple eclass f = do
     f e
 
 classElementsIx ::
-  ( MonadReader Document m
+  ( GetDocument r
+  , MonadReader r m
   , MonadJSM m
   ) =>
   Word ->
@@ -118,7 +141,7 @@ classElementsIx ::
   (Element -> MaybeT m a) ->
   MaybeT m a
 classElementsIx i eclass f = do
-  doc <- ask
+  doc <- view document
   c <- lift $ getElementsByClassName doc eclass
   l <- lift $ getLength c
   if (i < 0 || l <= i)
@@ -128,13 +151,14 @@ classElementsIx i eclass f = do
     f e
 
 simulateClick ::
-  ( MonadReader (TestingEnv a) m
+  ( GetDocument r
+  , MonadReader r m
   , MonadJSM m
   ) =>
   Text ->
   m Bool
 simulateClick eid = do
-  doc <- asks teDocument
+  doc <- view document
   m <- runMaybeT $ do
     e  <- MaybeT . getElementById doc $ eid
     he <- MaybeT . castTo HTMLElement $ e
@@ -169,12 +193,6 @@ testWidget w = do
   _ <- widgetHold w (w <$ eReset)
   pure ()
 
-data TestingEnv a =
-  TestingEnv {
-    teQueue :: TQueue a
-  , teDocument :: Document
-  }
-
 mkTestingEnv ::
   (Document -> JSM a) ->
   Widget () () ->
@@ -187,16 +205,14 @@ mkTestingEnv f b = do
     doc <- currentDocumentUnchecked
     body <- getBodyUnchecked doc
     attachWidgetWithActions
-      (pure ())
-      -- (liftIO . atomically $ putTMVar commitTMVar ())
+      (liftIO . atomically $ putTMVar commitTMVar ())
       (f doc >>= liftIO . atomically . writeTQueue renderQueue)
       body
       jsSing
-      b -- (testWidget b)
+      (testWidget b)
     pure doc
 
-  --liftIO . putStrLn $ "waiting for commit"
-  -- liftIO . atomically . takeTMVar $ commitTMVar
+  liftIO . atomically . takeTMVar $ commitTMVar
   liftIO . atomically . readTQueue $ renderQueue
 
   pure $ TestingEnv renderQueue doc
@@ -243,7 +259,7 @@ waitForRender ::
   ) =>
   m a
 waitForRender = do
-  q <- asks teQueue
+  q <- view teQueue
   liftIO . atomically . readTQueue $ q
 
 waitForCondition ::
@@ -280,8 +296,8 @@ prismCallback p (Update f) =
       Nothing -> st
 prismCallback p (Ensure f) =
   Ensure $ \stb sta i o ->
-    case (preview p sta, preview p stb) of
-      (Just sta' , Just stb') -> f sta' stb' i o
+    case (preview p stb, preview p sta) of
+      (Just stb' , Just sta') -> f stb' sta' i o
       _ -> pure ()
 
 prismCommand ::
@@ -337,7 +353,9 @@ s_reset initial =
       resetTest
   in
     Command gen execute [
-        Update $ \_s Reset _o ->
+        Require $ \s Reset ->
+            isJust (preview _Setup s)
+      , Update $ \_s Reset _o ->
           review _Running initial
       , Ensure $ \_before after Reset _b ->
           review _Running initial === after
@@ -363,3 +381,4 @@ propertyJSM p = run . void $ do
     property .
     hoist (runJSaddle ctx) $
     p
+
