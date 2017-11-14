@@ -293,6 +293,8 @@ s_remove =
     , Update $ \s (Remove i) _o ->
         s & msItems %~ \s -> (Seq.take i s) Seq.>< (Seq.drop (i + 1) s)
     , Ensure $ \before after (Remove _) b -> do
+        -- check that the size of the text stays the same
+        assert $ before ^. msText . to Text.length == after ^. msText . to Text.length
         -- check that the size of the list shrinks
         assert $ before ^. msItems . to Seq.length >= after ^. msItems . to Seq.length
         -- check that the state is in sync
