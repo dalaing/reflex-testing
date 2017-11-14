@@ -10,7 +10,7 @@ Portability : non-portable
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 module List.Test (
-    boo
+    listStateMachine
   ) where
 
 import Control.Monad (void, forM, forM_)
@@ -129,56 +129,6 @@ blurText = do
     lift $ blur he
   pure $ isJust m
 
-{-
-typeKeycode ::
-  ( MonadReader Document m
-  , MonadJSM m
-  ) =>
-  Key ->
-  m Bool
-typeKeycode k = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    val <- liftJSM $ do
-      obj@(JS.Object o) <- JS.create
-      JS.objSetPropertyByName obj ("cancelable" :: Text) True
-      JS.objSetPropertyByName obj ("bubbles" :: Text) True
-      JS.objSetPropertyByName obj ("which" :: Text) (keyToKeycode k)
-      pure $ pFromJSVal o
-
-    let kei = Just $ KeyboardEventInit val
-
-    keyDown <- newKeyboardEvent ("keydown" :: Text) kei
-    void $ dispatchEvent he keyDown
-
-    keyPress <- newKeyboardEvent ("keypress" :: Text) kei
-    void $ dispatchEvent he keyPress
-
-    input <- newKeyboardEvent ("input" :: Text) Nothing
-    void $ dispatchEvent he input
-
-    keyUp <- newKeyboardEvent ("keyup" :: Text) kei
-    void $ dispatchEvent he keyUp
-
-  pure $ isJust m
-
-typeEnter ::
-  ( MonadReader Document m
-  , MonadJSM m
-  ) =>
-  m Bool
-typeEnter =
-  typeKeycode Enter
-
-typeEscape ::
-  ( MonadReader Document m
-  , MonadJSM m
-  ) =>
-  m Bool
-typeEscape =
-  typeKeycode Escape
--}
-
 typeText ::
   ( GetDocument r
   , MonadReader r m
@@ -253,35 +203,6 @@ clickRemove i = do
     he <- MaybeT $ castTo HTMLElement e
     lift $ click he
   pure $ isJust m
-
-boo :: JSM ()
-boo = do
-  env <- mkTestingEnv fetchState' listWidget
-
-  flip runReaderT env $ do
-    void $ focusText
-    void $ typeText "a"
-    void $ blurText
-
-    void clickAdd
-
-    void $ focusText
-    void $ typeText "b"
-    void $ blurText
-
-    void clickAdd
-
-    void $ focusText
-    void $ typeText "c"
-    void $ blurText
-
-    void clickAdd
-
-    void $ focusText
-    void $ typeText "this is just a test"
-    void $ blurText
-
-    void $ clickRemove 1
 
 s_type ::
   ( Monad n

@@ -205,14 +205,14 @@ mkTestingEnv f b = do
     doc <- currentDocumentUnchecked
     body <- getBodyUnchecked doc
     attachWidgetWithActions
-      (liftIO . atomically $ putTMVar commitTMVar ())
+      (pure ()) -- (liftIO . atomically $ putTMVar commitTMVar ())
       (f doc >>= liftIO . atomically . writeTQueue renderQueue)
       body
       jsSing
       (testWidget b)
     pure doc
 
-  liftIO . atomically . takeTMVar $ commitTMVar
+  -- liftIO . atomically . takeTMVar $ commitTMVar
   liftIO . atomically . readTQueue $ renderQueue
 
   pure $ TestingEnv renderQueue doc
