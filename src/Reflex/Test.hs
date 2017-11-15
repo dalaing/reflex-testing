@@ -293,12 +293,10 @@ testingEnvHook f (TestingEnv tmDoc tqRender) h = do
 
     done <- getResultDone doc
     when done $ do
-    --   ma <- f doc
-    --   forM_ ma $
-    --     liftIO . atomically . writeTQueue tqRender
       clearResultDone doc
       a <- f doc
       liftIO . atomically . writeTQueue tqRender $ a
+
     pure ()
 
 
