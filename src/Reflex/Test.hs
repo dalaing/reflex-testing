@@ -16,18 +16,22 @@ Portability : non-portable
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Test (
-    classElementsSingle
+    TestingEnv(..)
+  , mkTestingEnv
+  , GetDocument(..)
+  , getDocument
+  , testingWidget
+  , resetTest
+  , waitForRender
+  , waitForCondition
+
+  , classElementsSingle
   , classElementsMultiple
   , classElementsIx
   , simulateClick
   , readOutput'
   , readOutput
-  , TestingEnv(..)
-  , mkTestingEnv
-  , mkTestingEnvWithHead
-  , resetTest
-  , waitForRender
-  , waitForCondition
+
   , hoistCommand
   , ResettableState
   , initialResettableState
@@ -37,11 +41,10 @@ module Reflex.Test (
   , prismCommand
   , TestJSM(..)
   , propertyJSM
-  , GetDocument(..)
   ) where
 
-import Control.Monad (void, unless, forM)
-import Data.Maybe (isJust)
+import Control.Monad (void, unless, when, forM, forM_)
+import Data.Maybe (isJust, fromMaybe)
 import Text.Read (readMaybe)
 
 import Data.Typeable (Typeable)
@@ -80,33 +83,62 @@ import Reflex.Helpers
 
 data TestingEnv a =
   TestingEnv {
-    _teQueue :: TQueue a
-  , _teDocument :: Document
+    _teDocument :: TMVar Document
+  , _teQueue    :: TQueue a
   }
 
 makeClassy ''TestingEnv
 
+mkTestingEnv :: STM (TestingEnv a)
+mkTestingEnv =
+  TestingEnv <$> newEmptyTMVar <*> newTQueue
+
 class GetDocument d where
-  document :: Lens' d Document
+  getDocument' :: MonadIO m => d -> m Document
 
 instance GetDocument Document where
-  document = id
+  getDocument' = pure
 
 instance GetDocument (TestingEnv a) where
-  document = teDocument
+  getDocument' =
+    liftIO .
+    atomically .
+    readTMVar .
+    _teDocument
+
+getDocument ::
+  ( GetDocument d
+  , MonadReader d m
+  , MonadIO m
+  ) =>
+  m Document
+getDocument =
+  ask >>= getDocument'
+
+classElements ::
+  ( GetDocument d
+  , MonadReader d m
+  , MonadJSM m
+  ) =>
+  Text ->
+  m (Word, HTMLCollection)
+classElements eclass = do
+  doc <- getDocument
+  c <- getElementsByClassName doc eclass
+  l <- getLength c
+  pure (l, c)
 
 classElementsSingle ::
-  ( GetDocument r
-  , MonadReader r m
+  ( GetDocument d
+  , MonadReader d m
   , MonadJSM m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
   MaybeT m a
 classElementsSingle eclass f = do
-  doc <- view document
-  c <- lift $ getElementsByClassName doc eclass
-  l <- lift $ getLength c
+  doc <- getDocument
+  (l, c) <- lift $ classElements eclass
   if (l /= 1)
   then MaybeT . pure $ Nothing
   else do
@@ -114,17 +146,15 @@ classElementsSingle eclass f = do
     f e
 
 classElementsMultiple ::
-  ( GetDocument r
-  , MonadReader r m
+  ( GetDocument d
+  , MonadReader d m
   , MonadJSM m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
   MaybeT m [a]
 classElementsMultiple eclass f = do
-  doc <- view document
-  c <- lift $ getElementsByClassName doc eclass
-  l <- lift $ getLength c
+  (l, c) <- lift $ classElements eclass
   if (l == 0)
   then pure []
   else forM [0..l-1] $ \i -> do
@@ -132,8 +162,8 @@ classElementsMultiple eclass f = do
     f e
 
 classElementsIx ::
-  ( GetDocument r
-  , MonadReader r m
+  ( GetDocument d
+  , MonadReader d m
   , MonadJSM m
   ) =>
   Word ->
@@ -141,27 +171,35 @@ classElementsIx ::
   (Element -> MaybeT m a) ->
   MaybeT m a
 classElementsIx i eclass f = do
-  doc <- view document
-  c <- lift $ getElementsByClassName doc eclass
-  l <- lift $ getLength c
+  (l, c) <- lift $ classElements eclass
   if (i < 0 || l <= i)
   then MaybeT . pure $ Nothing
   else do
     e <- MaybeT $ item c i
     f e
 
+idHtmlElement ::
+  ( GetDocument d
+  , MonadReader d m
+  , MonadJSM m
+  ) =>
+  Text ->
+  MaybeT m HTMLElement
+idHtmlElement eid = do
+  doc <- getDocument
+  e  <- MaybeT . getElementById doc $ eid
+  MaybeT . castTo HTMLElement $ e
+
 simulateClick ::
-  ( GetDocument r
-  , MonadReader r m
+  ( GetDocument d
+  , MonadReader d m
   , MonadJSM m
   ) =>
   Text ->
   m Bool
 simulateClick eid = do
-  doc <- view document
   m <- runMaybeT $ do
-    e  <- MaybeT . getElementById doc $ eid
-    he <- MaybeT . castTo HTMLElement $ e
+    he <- idHtmlElement eid
     lift . click $ he
   pure $ isJust m
 
@@ -190,59 +228,13 @@ testWidget ::
   m ()
 testWidget w = do
   eReset <- buttonWithId "reset-btn" "Reset"
+
+  elAttr "text" ("id" =: "result-text") $ do
+    dResult <- holdDyn "" ("" <$ eReset)
+    dynText dResult
+
   _ <- widgetHold w (w <$ eReset)
   pure ()
-
-mkTestingEnv ::
-  (Document -> JSM a) ->
-  Widget () () ->
-  JSM (TestingEnv a)
-mkTestingEnv f b = do
-  commitTMVar <- liftIO . atomically $ newEmptyTMVar
-  renderQueue <- liftIO . atomically $ newTQueue
-
-  doc <- withJSContextSingletonMono $ \jsSing -> do
-    doc <- currentDocumentUnchecked
-    body <- getBodyUnchecked doc
-    attachWidgetWithActions
-      (pure ()) -- (liftIO . atomically $ putTMVar commitTMVar ())
-      (f doc >>= liftIO . atomically . writeTQueue renderQueue)
-      body
-      jsSing
-      (testWidget b)
-    pure doc
-
-  -- liftIO . atomically . takeTMVar $ commitTMVar
-  liftIO . atomically . readTQueue $ renderQueue
-
-  pure $ TestingEnv renderQueue doc
-
-mkTestingEnvWithHead ::
-  (Document -> JSM a) ->
-  Widget () () ->
-  Widget () () ->
-  JSM (TestingEnv a)
-mkTestingEnvWithHead f h b = do
-  commitTMVar <- liftIO . atomically $ newEmptyTMVar
-  renderQueue <- liftIO . atomically $ newTQueue
-
-  doc <- withJSContextSingletonMono $ \jsSing -> do
-    doc <- currentDocumentUnchecked
-    headElement <- getHeadUnchecked doc
-    attachWidget headElement jsSing h
-    body <- getBodyUnchecked doc
-    attachWidgetWithActions
-      (liftIO . atomically $ putTMVar commitTMVar ())
-      (f doc >>= liftIO . atomically . writeTQueue renderQueue)
-      body
-      jsSing
-      (testWidget b)
-    pure doc
-
-  liftIO . atomically . takeTMVar $ commitTMVar
-  liftIO . atomically . readTQueue $ renderQueue
-
-  pure $ TestingEnv renderQueue doc
 
 resetTest ::
   ( MonadReader (TestingEnv a) m
@@ -253,18 +245,92 @@ resetTest = do
   simulateClick "reset-btn"
   waitForRender
 
+setResultDone ::
+  ( GetDocument d
+  , MonadReader d m
+  , MonadJSM m
+  ) =>
+  m ()
+setResultDone = do
+  doc <- getDocument
+  _ <- runMaybeT $ do
+    e <- MaybeT $ getElementById doc ("result-text" :: Text)
+    lift . setTextContent e . Just $ ("Done" :: Text)
+  pure ()
+
+clearResultDone ::
+  Document ->
+  JSM ()
+clearResultDone doc = do
+  _ <- runMaybeT $ do
+    e <- MaybeT $ getElementById doc ("result-text" :: Text)
+    lift . setTextContent e . Just $ ("" :: Text)
+  pure ()
+
+getResultDone ::
+  Document ->
+  JSM Bool
+getResultDone doc = do
+  mt <- runMaybeT $ do
+    e <- MaybeT $ getElementById doc ("result-text" :: Text)
+    t <- MaybeT . getTextContent $ e
+    pure $ t == ("Done" :: Text)
+
+  pure $ fromMaybe False mt
+
+testingEnvHook ::
+  -- (Document -> JSM (Maybe a)) ->
+  (Document -> JSM a) ->
+  TestingEnv a ->
+  JSM x ->
+  JSM x
+testingEnvHook f (TestingEnv tmDoc tqRender) h = do
+  x <- h
+
+  mDoc <- currentDocument
+  forM_ mDoc $ \doc -> do
+    liftIO . atomically . tryPutTMVar tmDoc $ doc
+
+    done <- getResultDone doc
+    when done $ do
+    --   ma <- f doc
+    --   forM_ ma $
+    --     liftIO . atomically . writeTQueue tqRender
+      clearResultDone doc
+      a <- f doc
+      liftIO . atomically . writeTQueue tqRender $ a
+    pure ()
+
+
+  pure x
+
+testingWidget ::
+  ( MonadWidget t m
+  , DomRenderHook t m
+  ) =>
+  (Document -> JSM a) ->
+  TestingEnv a ->
+  m () ->
+  m ()
+testingWidget f e =
+  withRenderHook (testingEnvHook f e) .
+  testWidget
+
 waitForRender ::
   ( MonadReader (TestingEnv a) m
   , MonadIO m
+  , MonadJSM m
   ) =>
   m a
 waitForRender = do
+  setResultDone
   q <- view teQueue
   liftIO . atomically . readTQueue $ q
 
 waitForCondition ::
   ( MonadReader (TestingEnv a) m
   , MonadIO m
+  , MonadJSM m
   ) =>
   (a -> Bool) ->
   m ()

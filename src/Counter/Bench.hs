@@ -13,7 +13,7 @@ module Counter.Bench (
 import Control.Monad (void, forever)
 import Data.Proxy (Proxy (..))
 
-import Control.Monad.Trans (liftIO)
+import Control.Monad.Trans (lift, liftIO)
 import Control.Monad.Reader (ReaderT, runReaderT)
 
 import Control.Concurrent
@@ -22,6 +22,7 @@ import Control.Concurrent.STM.TMVar
 import Control.Concurrent.STM.TQueue
 
 import GHCJS.DOM.Types (JSM)
+import Reflex.Dom.Core (mainWidget)
 import Reflex.Dom (run)
 
 import Criterion.Main
@@ -60,7 +61,8 @@ testLoop ::
   TMVar () ->
   IO ()
 testLoop q t = run . void $ do
-  env <- mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") counter
+  env <- liftIO . atomically $ mkTestingEnv
+  _ <- mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
   flip runReaderT env $ do
     forever $ do
       bt <- liftIO . atomically $ readTQueue q

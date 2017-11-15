@@ -8,6 +8,7 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 module List.Test (
     listStateMachine
@@ -29,6 +30,8 @@ import Control.Monad.Trans (lift, liftIO)
 import Control.Monad.Reader (MonadReader, ask, runReaderT)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import Control.Monad.Morph (hoist)
+
+import Control.Monad.STM (atomically)
 
 import Data.Sequence (Seq)
 import Data.Sequence as Seq
@@ -52,6 +55,8 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
 
+import Reflex.Dom.Core (mainWidget, Widget)
+
 import Reflex.Test
 import List
 
@@ -69,9 +74,10 @@ fetchText ::
   , MonadJSM m
   ) =>
   MaybeT m Text
-fetchText = classElementsSingle "add-input" $ \e -> do
-  he <- MaybeT $ castTo HTMLInputElement e
-  lift $ getValue he
+fetchText = 
+  classElementsSingle "add-input" $ \e -> do
+    he <- MaybeT $ castTo HTMLInputElement e
+    lift $ getValue he
 
 fetchItems ::
   ( GetDocument r
@@ -309,8 +315,14 @@ initialState =
 listStateMachine ::
   PropertyT JSM ()
 listStateMachine = do
-  env <- lift $ mkTestingEnv fetchState' listWidget
-  let hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
+  env <- liftIO . atomically $ mkTestingEnv
+  _ <- lift $ do
+    mainWidget $ testingWidget fetchState' env $ listWidget
+    runReaderT resetTest env
+
+  let
+    hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
+
   actions <- forAll $
     Gen.sequential (Range.linear 1 100) initialResettableState [
       hoistEnv $ s_reset initialState

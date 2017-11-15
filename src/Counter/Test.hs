@@ -14,9 +14,11 @@ module Counter.Test (
 
 import Data.Proxy (Proxy(..))
 
-import Control.Monad.Trans (lift, MonadIO)
+import Control.Monad.Trans (lift, MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Control.Monad.Morph (hoist)
+
+import Control.Monad.STM (atomically)
 
 import Hedgehog
 import qualified Hedgehog.Gen as Gen
@@ -24,6 +26,9 @@ import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
 
 import GHCJS.DOM.Types (JSM, MonadJSM, liftJSM, askJSM)
+
+import Reflex.Dom.Core (mainWidget)
+import Reflex.Dom (run)
 
 import Reflex.Test
 import Counter
@@ -97,8 +102,14 @@ initialState =
 counterStateMachine ::
   PropertyT JSM ()
 counterStateMachine = do
-  env <- lift $ mkTestingEnv (readOutput' (Proxy :: Proxy Int) "count-output") counter
-  let hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
+  env <- liftIO . atomically $ mkTestingEnv
+  _ <- lift $ do
+    mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
+    runReaderT resetTest env
+
+  let
+    hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
+
   actions <- forAll $
     Gen.sequential (Range.linear 1 100) initialResettableState [
       hoistEnv $ s_reset initialState
@@ -106,3 +117,4 @@ counterStateMachine = do
     , hoistEnv $ prismCommand _Running s_clear
     ]
   PropertyT $ executeSequential initialResettableState actions
+

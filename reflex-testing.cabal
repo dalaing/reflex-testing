@@ -33,6 +33,7 @@ library
                      , Todo.Item.Complete
                      , Todo.Item.Text
                      , Todo.Test
+                     , HookTest
   build-depends:       base >=4.9 && <4.10
                      , transformers
                      , mtl
