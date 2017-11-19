@@ -34,7 +34,7 @@ import Control.Monad.Morph (hoist)
 import Control.Monad.STM (atomically)
 
 import Data.Sequence (Seq)
-import Data.Sequence as Seq
+import qualified Data.Sequence as Seq
 
 import GHCJS.DOM
 import GHCJS.DOM.Document
@@ -56,6 +56,7 @@ import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
 
 import Reflex.Dom.Core (mainWidget, Widget)
+import Reflex.Dom (run)
 
 import Reflex.Test
 import List
@@ -74,7 +75,7 @@ fetchText ::
   , MonadJSM m
   ) =>
   MaybeT m Text
-fetchText = 
+fetchText =
   classElementsSingle "add-input" $ \e -> do
     he <- MaybeT $ castTo HTMLInputElement e
     lift $ getValue he
@@ -162,11 +163,11 @@ typeText t = do
       keyPress <- newKeyboardEvent ("keypress" :: Text) kei
       void $ dispatchEvent he keyPress
 
-      input <- newKeyboardEvent ("input" :: Text) Nothing
-      void $ dispatchEvent he input
-
       t' <- getValue he
       setValue he $ mconcat [t', Text.pack . pure $ c]
+
+      input <- newKeyboardEvent ("input" :: Text) kei
+      void $ dispatchEvent he input
 
       keyUp <- newKeyboardEvent ("keyup" :: Text) kei
       void $ dispatchEvent he keyUp
@@ -221,23 +222,23 @@ s_type ::
 s_type =
   let
     gen _ =
-      Just $ Type <$> Gen.text (Range.linear 1 1) Gen.alphaNum
+      Just $ Type <$> Gen.text (Range.linear 1 20) Gen.alphaNum
     execute (Type t) = do
-      -- void $ focusText
+      void $ focusText
       void $ typeText t
-      -- void $ blurText
+      void $ blurText
       waitForRender
   in
     Command gen execute [
       Update $ \s (Type t) _o ->
           s & msText %~ (`Text.append` t)
     , Ensure $ \before after (Type _) b -> do
+        -- check that the state is in sync
+        Just after === b
         -- check that the size of the text grows
         assert $ before ^. msText . to Text.length <= after ^. msText . to Text.length
         -- check that the list items stay the same
-        assert $ before ^. msItems . to Seq.length == after ^. msItems . to Seq.length
-        -- check that the state is in sync
-        Just after === b
+        assert $ before ^. msItems == after ^. msItems
     ]
 
 s_add ::
@@ -264,12 +265,19 @@ s_add =
           s & msItems %~ (\i -> i Seq.|> (s ^. msText))
             & msText .~ ""
     , Ensure $ \before after Add b -> do
+        -- check that the state is in sync
+        Just after === b
+
         -- check that the text becomes empty
         assert . Text.null $ after ^. msText
         -- check that the size of the list grows
         assert $ before ^. msItems . to Seq.length <= after ^. msItems . to Seq.length
-        -- check that the state is in sync
-        Just after === b
+
+        -- check that the value in the before text box is added to the items
+        let
+          text = before ^. msText
+          count = Seq.length . Seq.filter (== text)
+        assert $ before ^. msItems . to count + 1 == after ^. msItems . to count
     ]
 
 s_remove ::
@@ -298,13 +306,20 @@ s_remove =
         0 <= i && i < s ^. msItems . to Seq.length
     , Update $ \s (Remove i) _o ->
         s & msItems %~ \s -> (Seq.take i s) Seq.>< (Seq.drop (i + 1) s)
-    , Ensure $ \before after (Remove _) b -> do
+    , Ensure $ \before after (Remove i) b -> do
+        -- check that the state is in sync
+        Just after === b
+
         -- check that the size of the text stays the same
         assert $ before ^. msText . to Text.length == after ^. msText . to Text.length
         -- check that the size of the list shrinks
         assert $ before ^. msItems . to Seq.length >= after ^. msItems . to Seq.length
-        -- check that the state is in sync
-        Just after === b
+
+        -- check that the item is removed
+        let
+          text = before ^. msItems . to (`Seq.index` i)
+          count = Seq.length . Seq.filter (== text)
+        assert $ before ^. msItems . to count == after ^. msItems . to count + 1
     ]
 
 initialState ::
@@ -334,3 +349,19 @@ listStateMachine = do
 
 goList :: IO ()
 goList = propertyJSM listStateMachine
+
+boo :: IO ()
+boo = run $ do
+  env <- liftIO . atomically $ mkTestingEnv
+  _ <- mainWidget $ testingWidget fetchState' env $ listWidget
+
+  flip runReaderT env $ do
+    -- resetTest
+
+    void $ typeText "a"
+    liftIO . print =<< waitForRender
+
+    void $ clickAdd
+    liftIO . print =<< waitForRender
+
+

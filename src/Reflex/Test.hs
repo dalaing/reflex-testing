@@ -84,14 +84,14 @@ import Reflex.Helpers
 data TestingEnv a =
   TestingEnv {
     _teDocument :: TMVar Document
-  , _teQueue    :: TQueue a
+  , _teQueue    :: TMVar a
   }
 
 makeClassy ''TestingEnv
 
 mkTestingEnv :: STM (TestingEnv a)
 mkTestingEnv =
-  TestingEnv <$> newEmptyTMVar <*> newTQueue
+  TestingEnv <$> newEmptyTMVar <*> newEmptyTMVar
 
 class GetDocument d where
   getDocument' :: MonadIO m => d -> m Document
@@ -229,8 +229,15 @@ testWidget ::
 testWidget w = do
   eReset <- buttonWithId "reset-btn" "Reset"
 
+  eStart <- buttonWithId "result-start-btn" "Start"
+  eStop <- buttonWithId "result-stop-btn" "Stop"
+
+  dResult <- holdDyn "" . leftmost $
+    [ "" <$ eStart
+    , "Done" <$ eStop
+    ]
+
   elAttr "text" ("id" =: "result-text") $ do
-    dResult <- holdDyn "" ("" <$ eReset)
     dynText dResult
 
   _ <- widgetHold w (w <$ eReset)
@@ -242,7 +249,7 @@ resetTest ::
   ) =>
   m a
 resetTest = do
-  simulateClick "reset-btn"
+  void $ simulateClick "reset-btn"
   waitForRender
 
 setResultDone ::
@@ -252,19 +259,17 @@ setResultDone ::
   ) =>
   m ()
 setResultDone = do
-  doc <- getDocument
-  _ <- runMaybeT $ do
-    e <- MaybeT $ getElementById doc ("result-text" :: Text)
-    lift . setTextContent e . Just $ ("Done" :: Text)
+  simulateClick "result-stop-btn"
   pure ()
 
 clearResultDone ::
-  Document ->
-  JSM ()
-clearResultDone doc = do
-  _ <- runMaybeT $ do
-    e <- MaybeT $ getElementById doc ("result-text" :: Text)
-    lift . setTextContent e . Just $ ("" :: Text)
+  ( GetDocument d
+  , MonadReader d m
+  , MonadJSM m
+  ) =>
+  m ()
+clearResultDone = do
+  simulateClick "result-start-btn"
   pure ()
 
 getResultDone ::
@@ -293,9 +298,8 @@ testingEnvHook f (TestingEnv tmDoc tqRender) h = do
 
     done <- getResultDone doc
     when done $ do
-      clearResultDone doc
       a <- f doc
-      liftIO . atomically . writeTQueue tqRender $ a
+      liftIO . atomically . putTMVar tqRender $ a
 
     pure ()
 
@@ -323,7 +327,9 @@ waitForRender ::
 waitForRender = do
   setResultDone
   q <- view teQueue
-  liftIO . atomically . readTQueue $ q
+  a <- liftIO . atomically . takeTMVar $ q
+  clearResultDone
+  pure a
 
 waitForCondition ::
   ( MonadReader (TestingEnv a) m
