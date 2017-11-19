@@ -231,7 +231,7 @@ s_type =
   in
     Command gen execute [
       Update $ \s (Type t) _o ->
-          s & msText %~ (`Text.append` t)
+        s & msText %~ (`Text.append` t)
     , Ensure $ \before after (Type _) b -> do
         -- check that the state is in sync
         Just after === b
@@ -346,22 +346,3 @@ listStateMachine = do
     , hoistEnv $ prismCommand _Running s_remove
     ]
   PropertyT $ executeSequential initialResettableState actions
-
-goList :: IO ()
-goList = propertyJSM listStateMachine
-
-boo :: IO ()
-boo = run $ do
-  env <- liftIO . atomically $ mkTestingEnv
-  _ <- mainWidget $ testingWidget fetchState' env $ listWidget
-
-  flip runReaderT env $ do
-    -- resetTest
-
-    void $ typeText "a"
-    liftIO . print =<< waitForRender
-
-    void $ clickAdd
-    liftIO . print =<< waitForRender
-
-
