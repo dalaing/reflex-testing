@@ -27,7 +27,7 @@ import Hedgehog.Internal.Property
 
 import GHCJS.DOM.Types (JSM, MonadJSM, liftJSM, askJSM)
 
-import Reflex.Dom.Core (mainWidget)
+import Reflex.Dom.Core (mainWidget, HasDocument)
 import Reflex.Dom (run)
 
 import Reflex.Test
@@ -54,6 +54,7 @@ s_add ::
   , MonadTest m
   , MonadReader (TestingEnv Int) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   Command n m ModelState
 s_add =
@@ -76,6 +77,7 @@ s_clear ::
   , MonadTest m
   , MonadReader (TestingEnv Int) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   Command n m ModelState
 s_clear =
@@ -105,7 +107,7 @@ counterStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
     mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
-    runReaderT resetTest env
+    unTestJSM . runReaderT resetTest $ env
 
   let
     hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)

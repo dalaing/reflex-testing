@@ -18,8 +18,6 @@ Portability : non-portable
 module Reflex.Test (
     TestingEnv(..)
   , mkTestingEnv
-  , GetDocument(..)
-  , getDocument
   , testingWidget
   , resetTest
   , waitForRender
@@ -83,61 +81,36 @@ import Reflex.Helpers
 
 data TestingEnv a =
   TestingEnv {
-    _teDocument :: TMVar Document
-  , _teQueue    :: TMVar a
+    _teQueue    :: TMVar a
   }
 
 makeClassy ''TestingEnv
 
 mkTestingEnv :: STM (TestingEnv a)
 mkTestingEnv =
-  TestingEnv <$> newEmptyTMVar <*> newEmptyTMVar
-
-class GetDocument d where
-  getDocument' :: MonadIO m => d -> m Document
-
-instance GetDocument Document where
-  getDocument' = pure
-
-instance GetDocument (TestingEnv a) where
-  getDocument' =
-    liftIO .
-    atomically .
-    readTMVar .
-    _teDocument
-
-getDocument ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadIO m
-  ) =>
-  m Document
-getDocument =
-  ask >>= getDocument'
+  TestingEnv <$> newEmptyTMVar
 
 classElements ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   m (Word, HTMLCollection)
 classElements eclass = do
-  doc <- getDocument
+  doc <- askDocument
   c <- getElementsByClassName doc eclass
   l <- getLength c
   pure (l, c)
 
 classElementsSingle ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
   MaybeT m a
 classElementsSingle eclass f = do
-  doc <- getDocument
+  doc <- lift askDocument
   (l, c) <- lift $ classElements eclass
   if (l /= 1)
   then MaybeT . pure $ Nothing
@@ -146,9 +119,8 @@ classElementsSingle eclass f = do
     f e
 
 classElementsMultiple ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   (Element -> MaybeT m a) ->
@@ -162,9 +134,8 @@ classElementsMultiple eclass f = do
     f e
 
 classElementsIx ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Word ->
   Text ->
@@ -179,21 +150,19 @@ classElementsIx i eclass f = do
     f e
 
 idHtmlElement ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   MaybeT m HTMLElement
 idHtmlElement eid = do
-  doc <- getDocument
+  doc <- lift askDocument
   e  <- MaybeT . getElementById doc $ eid
   MaybeT . castTo HTMLElement $ e
 
 simulateClick ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   m Bool
@@ -246,6 +215,7 @@ testWidget w = do
 resetTest ::
   ( MonadReader (TestingEnv a) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   m a
 resetTest = do
@@ -253,9 +223,8 @@ resetTest = do
   waitForRender
 
 setResultDone ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   m ()
 setResultDone = do
@@ -263,9 +232,8 @@ setResultDone = do
   pure ()
 
 clearResultDone ::
-  ( GetDocument d
-  , MonadReader d m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   m ()
 clearResultDone = do
@@ -285,25 +253,19 @@ getResultDone doc = do
 
 testingEnvHook ::
   (Document -> JSM (Maybe a)) ->
-  -- (Document -> JSM a) ->
   TestingEnv a ->
   JSM x ->
   JSM x
-testingEnvHook f (TestingEnv tmDoc tqRender) h = do
+testingEnvHook f (TestingEnv tqRender) h = do
   x <- h
 
   mDoc <- currentDocument
   forM_ mDoc $ \doc -> do
-    liftIO . atomically . tryPutTMVar tmDoc $ doc
-
     done <- getResultDone doc
     when done $ do
       ma <- f doc
       forM_ ma $
         liftIO . atomically . putTMVar tqRender
-
-    pure ()
-
 
   pure x
 
@@ -323,6 +285,7 @@ waitForRender ::
   ( MonadReader (TestingEnv a) m
   , MonadIO m
   , MonadJSM m
+  , HasDocument m
   ) =>
   m a
 waitForRender = do
@@ -336,6 +299,7 @@ waitForCondition ::
   ( MonadReader (TestingEnv a) m
   , MonadIO m
   , MonadJSM m
+  , HasDocument m
   ) =>
   (a -> Bool) ->
   m ()
@@ -408,6 +372,7 @@ s_reset ::
   , MonadTest m
   , MonadReader (TestingEnv a) m
   , MonadJSM m
+  , HasDocument m
   , Typeable a
   , Show (st Concrete)
   , Eq (st Concrete)
@@ -437,10 +402,19 @@ newtype TestJSM a =
   deriving (Functor, Applicative, Monad, MonadIO, MonadJSM)
 
 instance MonadJSM (TestT (GenT (ReaderT r TestJSM))) where
-  liftJSM' = lift . lift . lift . TestJSM
+  liftJSM' = lift . lift . lift . liftJSM'
 
 instance MonadJSM (TestT (GenT TestJSM)) where
-  liftJSM' = lift . lift . TestJSM
+  liftJSM' = lift . lift . liftJSM'
+
+instance HasDocument TestJSM where
+  askDocument = TestJSM currentDocumentUnchecked
+
+instance HasDocument (TestT (GenT TestJSM)) where
+  askDocument = lift $ lift $ askDocument
+
+instance HasDocument (TestT (GenT (ReaderT r TestJSM))) where
+  askDocument = lift $ lift $ lift $ askDocument
 
 propertyJSM ::
   PropertyT JSM () ->

@@ -44,6 +44,8 @@ import GHCJS.DOM.EventTarget
 import GHCJS.DOM.KeyboardEvent
 import GHCJS.DOM.Types (MonadJSM, JSM, liftJSM, castTo, KeyboardEventInit(..))
 
+import Reflex.Dom.Core (HasDocument)
+
 import GHCJS.Marshal.Pure (pFromJSVal)
 import qualified Language.Javascript.JSaddle as JS
 
@@ -58,9 +60,8 @@ data ModelState (v :: * -> *) =
 makeLenses ''ModelState
 
 fetchText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   MaybeT m Text
 fetchText =
@@ -69,9 +70,8 @@ fetchText =
     lift $ getValue he
 
 fetchItems ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   MaybeT m (Seq Text)
 fetchItems = do
@@ -80,9 +80,8 @@ fetchItems = do
   pure $ Seq.fromList xs
 
 fetchState' ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   MaybeT m (ModelState v)
 fetchState' =
@@ -92,12 +91,12 @@ fetchState ::
   Document ->
   JSM (Maybe (ModelState v))
 fetchState =
+  unTestJSM .
   runReaderT (runMaybeT fetchState')
 
 focusText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   m Bool
 focusText = do
@@ -107,9 +106,8 @@ focusText = do
   pure $ isJust m
 
 blurText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   m Bool
 blurText = do
@@ -119,9 +117,8 @@ blurText = do
   pure $ isJust m
 
 typeText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Text ->
   m Bool
@@ -157,9 +154,8 @@ typeText t = do
   pure $ isJust m
 
 clickAdd ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   m Bool
 clickAdd = do
@@ -169,9 +165,8 @@ clickAdd = do
   pure $ isJust m
 
 clickRemove ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
+  ( MonadJSM m
+  , HasDocument m
   ) =>
   Word ->
   m Bool

@@ -52,7 +52,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
 
-import Reflex.Dom.Core (mainWidget, Widget)
+import Reflex.Dom.Core (mainWidget, Widget, HasDocument)
 import Reflex.Dom (run)
 
 import Reflex.Test
@@ -84,6 +84,7 @@ s_type ::
   , MonadTest m
   , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   Command n m ModelState
 s_type =
@@ -113,6 +114,7 @@ s_add ::
   , MonadTest m
   , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   Command n m ModelState
 s_add =
@@ -153,6 +155,7 @@ s_remove ::
   , MonadTest m
   , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
+  , HasDocument m
   ) =>
   Command n m ModelState
 s_remove =
@@ -200,7 +203,7 @@ listStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
     mainWidget $ testingWidget fetchState env $ listWidget
-    runReaderT resetTest env
+    unTestJSM . runReaderT resetTest $ env
 
   let
     hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)

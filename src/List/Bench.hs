@@ -6,6 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module List.Bench (
     goList
   ) where
@@ -16,7 +17,7 @@ import Data.Proxy (Proxy (..))
 import Control.Lens
 
 import Control.Monad.Trans (lift, liftIO)
-import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 
 import Control.Concurrent
 import Control.Monad.STM
@@ -26,8 +27,8 @@ import Control.Concurrent.STM.TQueue
 import qualified Data.Text as Text
 import qualified Data.Sequence as Seq
 
-import GHCJS.DOM.Types (JSM)
-import Reflex.Dom.Core (mainWidget)
+import GHCJS.DOM.Types (JSM, MonadJSM)
+import Reflex.Dom.Core (mainWidget, HasDocument)
 import Reflex.Dom (run)
 
 import Criterion.Main
@@ -37,12 +38,20 @@ import List
 import List.Common
 
 testRender ::
-  ReaderT (TestingEnv (ModelState v)) JSM ()
+  ( MonadReader (TestingEnv (ModelState v)) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testRender =
   pure ()
 
 testType ::
-  ReaderT (TestingEnv (ModelState v)) JSM ()
+  ( MonadReader (TestingEnv (ModelState v)) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testType = do
   focusText
   typeText "test"
@@ -50,7 +59,11 @@ testType = do
   waitForCondition (\st -> not . Text.null $ st ^. msText)
 
 testAdd ::
-  ReaderT (TestingEnv (ModelState v)) JSM ()
+  ( MonadReader (TestingEnv (ModelState v)) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testAdd = do
   focusText
   typeText "test"
@@ -60,7 +73,11 @@ testAdd = do
   waitForCondition (\st -> st ^. msItems . to Seq.length == 1)
 
 testRemove ::
-  ReaderT (TestingEnv (ModelState v)) JSM ()
+  ( MonadReader (TestingEnv (ModelState v)) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testRemove = do
   focusText
   typeText "test"
@@ -85,7 +102,7 @@ testLoop ::
 testLoop q t = run . void $ do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- mainWidget $ testingWidget fetchState env $ listWidget
-  flip runReaderT env $ do
+  unTestJSM . flip runReaderT env $ do
     forever $ do
       resetTest
       bt <- liftIO . atomically $ readTQueue q

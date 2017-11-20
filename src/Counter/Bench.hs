@@ -6,6 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Counter.Bench (
     goCounter
   ) where
@@ -14,15 +15,15 @@ import Control.Monad (void, forever)
 import Data.Proxy (Proxy (..))
 
 import Control.Monad.Trans (lift, liftIO)
-import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 
 import Control.Concurrent
 import Control.Monad.STM
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.STM.TQueue
 
-import GHCJS.DOM.Types (JSM)
-import Reflex.Dom.Core (mainWidget)
+import GHCJS.DOM.Types (JSM, MonadJSM)
+import Reflex.Dom.Core (mainWidget, HasDocument)
 import Reflex.Dom (run)
 
 import Criterion.Main
@@ -31,18 +32,30 @@ import Reflex.Test
 import Counter
 
 testRender ::
-  ReaderT (TestingEnv Int) JSM ()
+  ( MonadReader (TestingEnv Int) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testRender =
   pure ()
 
 testAdd ::
-  ReaderT (TestingEnv Int) JSM ()
+  ( MonadReader (TestingEnv Int) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testAdd = do
   simulateClick "add-btn"
   waitForCondition (== 1)
 
 testClear ::
-  ReaderT (TestingEnv Int) JSM ()
+  ( MonadReader (TestingEnv Int) m
+  , MonadJSM m
+  , HasDocument m
+  ) =>
+  m ()
 testClear = do
   simulateClick "add-btn"
   simulateClick "clear-btn"
@@ -61,7 +74,7 @@ testLoop ::
 testLoop q t = run . void $ do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
-  flip runReaderT env $ do
+  unTestJSM . flip runReaderT env $ do
     forever $ do
       resetTest
       bt <- liftIO . atomically $ readTQueue q
