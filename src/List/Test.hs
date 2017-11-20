@@ -47,9 +47,6 @@ import GHCJS.DOM.KeyboardEvent
 import GHCJS.DOM.Node
 import GHCJS.DOM.Types (MonadJSM, JSM, liftJSM, castTo, KeyboardEventInit(..))
 
-import GHCJS.Marshal.Pure (pFromJSVal)
-import qualified Language.Javascript.JSaddle as JS
-
 import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -59,52 +56,9 @@ import Reflex.Dom.Core (mainWidget, Widget)
 import Reflex.Dom (run)
 
 import Reflex.Test
+
 import List
-
-data ModelState (v :: * -> *) =
-  ModelState {
-    _msText :: Text
-  , _msItems :: Seq Text
-  } deriving (Eq, Ord, Show)
-
-makeLenses ''ModelState
-
-fetchText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  MaybeT m Text
-fetchText =
-  classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ getValue he
-
-fetchItems ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  MaybeT m (Seq Text)
-fetchItems = do
-  xs <- classElementsMultiple "item-text" $ \e -> do
-    MaybeT . getTextContent $ e
-  pure $ Seq.fromList xs
-
-fetchState ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  MaybeT m (ModelState v)
-fetchState =
-  ModelState <$> fetchText <*> fetchItems
-
-fetchState' ::
-  Document ->
-  JSM (Maybe (ModelState v))
-fetchState' =
-  runReaderT (runMaybeT fetchState)
+import List.Common
 
 data Type (v :: * -> *) = Type Text
   deriving (Eq, Show)
@@ -112,85 +66,11 @@ data Type (v :: * -> *) = Type Text
 instance HTraversable Type where
   htraverse _ (Type t) = pure (Type t)
 
-focusText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  m Bool
-focusText = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ focus he
-  pure $ isJust m
-
-blurText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  m Bool
-blurText = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ blur he
-  pure $ isJust m
-
-typeText ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  Text ->
-  m Bool
-typeText t = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ forM_ (Text.unpack t) $ \c -> do
-      val <- liftJSM $ do
-        obj@(JS.Object o) <- JS.create
-        JS.objSetPropertyByName obj ("cancelable" :: Text) True
-        JS.objSetPropertyByName obj ("bubbles" :: Text) True
-        -- TODO characters to keycodes, including handling shift
-        JS.objSetPropertyByName obj ("which" :: Text) (72 :: Int)
-        pure $ pFromJSVal o
-
-      let kei = Just $ KeyboardEventInit val
-
-      keyDown <- newKeyboardEvent ("keydown" :: Text) kei
-      void $ dispatchEvent he keyDown
-
-      keyPress <- newKeyboardEvent ("keypress" :: Text) kei
-      void $ dispatchEvent he keyPress
-
-      t' <- getValue he
-      setValue he $ mconcat [t', Text.pack . pure $ c]
-
-      input <- newKeyboardEvent ("input" :: Text) kei
-      void $ dispatchEvent he input
-
-      keyUp <- newKeyboardEvent ("keyup" :: Text) kei
-      void $ dispatchEvent he keyUp
-
-  pure $ isJust m
-
 data Add (v :: * -> *) = Add
   deriving (Eq, Show)
 
 instance HTraversable Add where
   htraverse _ Add = pure Add
-
-clickAdd ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  m Bool
-clickAdd = do
-  m <- runMaybeT $ classElementsSingle "add-button" $ \e -> do
-    he <- MaybeT $ castTo HTMLElement e
-    lift $ click he
-  pure $ isJust m
 
 data Remove (v :: * -> *) = Remove Int
   deriving (Eq, Show)
@@ -198,24 +78,11 @@ data Remove (v :: * -> *) = Remove Int
 instance HTraversable Remove where
   htraverse _ (Remove i) = pure (Remove i)
 
-clickRemove ::
-  ( GetDocument r
-  , MonadReader r m
-  , MonadJSM m
-  ) =>
-  Word ->
-  m Bool
-clickRemove i = do
-  m <- runMaybeT $ classElementsIx i "remove-button" $ \e -> do
-    he <- MaybeT $ castTo HTMLElement e
-    lift $ click he
-  pure $ isJust m
-
 s_type ::
   ( Monad n
   , MonadGen n
   , MonadTest m
-  , MonadReader (TestingEnv (Maybe (ModelState Concrete))) m
+  , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
   ) =>
   Command n m ModelState
@@ -234,7 +101,7 @@ s_type =
         s & msText %~ (`Text.append` t)
     , Ensure $ \before after (Type _) b -> do
         -- check that the state is in sync
-        Just after === b
+        after === b
         -- check that the size of the text grows
         assert $ before ^. msText . to Text.length <= after ^. msText . to Text.length
         -- check that the list items stay the same
@@ -244,7 +111,7 @@ s_type =
 s_add ::
   ( Monad n
   , MonadTest m
-  , MonadReader (TestingEnv (Maybe (ModelState Concrete))) m
+  , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
   ) =>
   Command n m ModelState
@@ -266,7 +133,7 @@ s_add =
             & msText .~ ""
     , Ensure $ \before after Add b -> do
         -- check that the state is in sync
-        Just after === b
+        after === b
 
         -- check that the text becomes empty
         assert . Text.null $ after ^. msText
@@ -284,7 +151,7 @@ s_remove ::
   ( Monad n
   , MonadGen n
   , MonadTest m
-  , MonadReader (TestingEnv (Maybe (ModelState Concrete))) m
+  , MonadReader (TestingEnv (ModelState Concrete)) m
   , MonadJSM m
   ) =>
   Command n m ModelState
@@ -308,7 +175,7 @@ s_remove =
         s & msItems %~ \s -> (Seq.take i s) Seq.>< (Seq.drop (i + 1) s)
     , Ensure $ \before after (Remove i) b -> do
         -- check that the state is in sync
-        Just after === b
+        after === b
 
         -- check that the size of the text stays the same
         assert $ before ^. msText . to Text.length == after ^. msText . to Text.length
@@ -332,7 +199,7 @@ listStateMachine ::
 listStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
-    mainWidget $ testingWidget fetchState' env $ listWidget
+    mainWidget $ testingWidget fetchState env $ listWidget
     runReaderT resetTest env
 
   let

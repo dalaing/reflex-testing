@@ -284,8 +284,8 @@ getResultDone doc = do
   pure $ fromMaybe False mt
 
 testingEnvHook ::
-  -- (Document -> JSM (Maybe a)) ->
-  (Document -> JSM a) ->
+  (Document -> JSM (Maybe a)) ->
+  -- (Document -> JSM a) ->
   TestingEnv a ->
   JSM x ->
   JSM x
@@ -298,8 +298,9 @@ testingEnvHook f (TestingEnv tmDoc tqRender) h = do
 
     done <- getResultDone doc
     when done $ do
-      a <- f doc
-      liftIO . atomically . putTMVar tqRender $ a
+      ma <- f doc
+      forM_ ma $
+        liftIO . atomically . putTMVar tqRender
 
     pure ()
 
@@ -310,7 +311,7 @@ testingWidget ::
   ( MonadWidget t m
   , DomRenderHook t m
   ) =>
-  (Document -> JSM a) ->
+  (Document -> JSM (Maybe a)) ->
   TestingEnv a ->
   m () ->
   m ()

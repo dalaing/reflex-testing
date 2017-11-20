@@ -52,7 +52,7 @@ instance HTraversable Clear where
 s_add ::
   ( Monad n
   , MonadTest m
-  , MonadReader (TestingEnv (Maybe Int)) m
+  , MonadReader (TestingEnv Int) m
   , MonadJSM m
   ) =>
   Command n m ModelState
@@ -68,13 +68,13 @@ s_add =
         Update $ \(ModelState c) Add _o ->
           ModelState (c + 1)
       , Ensure $ \_before (ModelState c) Add b -> do
-         Just c === b
+         c === b
     ]
 
 s_clear ::
   ( Monad n
   , MonadTest m
-  , MonadReader (TestingEnv (Maybe Int)) m
+  , MonadReader (TestingEnv Int) m
   , MonadJSM m
   ) =>
   Command n m ModelState
@@ -90,7 +90,7 @@ s_clear =
         Update $ \_s Clear _o ->
           ModelState 0
       , Ensure $ \_before (ModelState c) Clear b -> do
-          Just 0 === b
+          0 === b
           0 === c
     ]
 

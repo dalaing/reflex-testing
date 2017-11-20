@@ -23,7 +23,9 @@ library
                      , Counter.Test
                      , Counter.Bench
                      , List
+                     , List.Common
                      , List.Test
+                     , List.Bench
                      , Todo
                      , Todo.Add
                      , Todo.MarkAllComplete
