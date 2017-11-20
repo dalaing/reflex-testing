@@ -16,7 +16,8 @@ Portability : non-portable
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Test (
-    TestingEnv(..)
+    TestJSM(..)
+  , TestingEnv(..)
   , mkTestingEnv
   , testingWidget
   , resetTest
@@ -27,7 +28,6 @@ module Reflex.Test (
   , classElementsMultiple
   , classElementsIx
   , simulateClick
-  , readOutput'
   , readOutput
 
   , hoistCommand
@@ -37,7 +37,6 @@ module Reflex.Test (
   , _Running
   , s_reset
   , prismCommand
-  , TestJSM(..)
   , propertyJSM
   ) where
 
@@ -78,6 +77,25 @@ import Hedgehog
 import Hedgehog.Internal.Property
 
 import Reflex.Helpers
+
+newtype TestJSM a =
+  TestJSM { unTestJSM :: JSM a }
+  deriving (Functor, Applicative, Monad, MonadIO, MonadJSM)
+
+instance MonadJSM (TestT (GenT (ReaderT r TestJSM))) where
+  liftJSM' = lift . lift . lift . liftJSM'
+
+instance MonadJSM (TestT (GenT TestJSM)) where
+  liftJSM' = lift . lift . liftJSM'
+
+instance HasDocument TestJSM where
+  askDocument = TestJSM currentDocumentUnchecked
+
+instance HasDocument (TestT (GenT TestJSM)) where
+  askDocument = lift $ lift $ askDocument
+
+instance HasDocument (TestT (GenT (ReaderT r TestJSM))) where
+  askDocument = lift $ lift $ lift $ askDocument
 
 data TestingEnv a =
   TestingEnv {
@@ -172,21 +190,21 @@ simulateClick eid = do
     lift . click $ he
   pure $ isJust m
 
-readOutput' ::
+readOutput ::
   Read a =>
   proxy a ->
   Text ->
   Document ->
   JSM (Maybe a)
-readOutput' _ =
-  readOutput
+readOutput _ =
+  readOutput'
 
-readOutput ::
+readOutput' ::
   Read a =>
   Text ->
   Document ->
   JSM (Maybe a)
-readOutput eid doc = runMaybeT $ do
+readOutput' eid doc = runMaybeT $ do
   e <- MaybeT . getElementById doc $ eid
   t <- MaybeT . getTextContent $ e
   MaybeT . pure . readMaybe . Text.unpack $ t
@@ -396,25 +414,6 @@ s_reset initial =
       , Ensure $ \_before after Reset _b ->
           review _Running initial === after
     ]
-
-newtype TestJSM a =
-  TestJSM { unTestJSM :: JSM a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadJSM)
-
-instance MonadJSM (TestT (GenT (ReaderT r TestJSM))) where
-  liftJSM' = lift . lift . lift . liftJSM'
-
-instance MonadJSM (TestT (GenT TestJSM)) where
-  liftJSM' = lift . lift . liftJSM'
-
-instance HasDocument TestJSM where
-  askDocument = TestJSM currentDocumentUnchecked
-
-instance HasDocument (TestT (GenT TestJSM)) where
-  askDocument = lift $ lift $ askDocument
-
-instance HasDocument (TestT (GenT (ReaderT r TestJSM))) where
-  askDocument = lift $ lift $ lift $ askDocument
 
 propertyJSM ::
   PropertyT JSM () ->

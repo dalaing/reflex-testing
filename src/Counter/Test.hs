@@ -106,7 +106,7 @@ counterStateMachine ::
 counterStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
-    mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
+    mainWidget $ testingWidget (readOutput (Proxy :: Proxy Int) "count-output") env $ counter
     unTestJSM . runReaderT resetTest $ env
 
   let

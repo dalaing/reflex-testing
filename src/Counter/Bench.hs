@@ -73,7 +73,7 @@ testLoop ::
   IO ()
 testLoop q t = run . void $ do
   env <- liftIO . atomically $ mkTestingEnv
-  _ <- mainWidget $ testingWidget (readOutput' (Proxy :: Proxy Int) "count-output") env $ counter
+  _ <- mainWidget $ testingWidget (readOutput (Proxy :: Proxy Int) "count-output") env $ counter
   unTestJSM . flip runReaderT env $ do
     forever $ do
       resetTest
