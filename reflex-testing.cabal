@@ -26,6 +26,7 @@ library
                      , List.Common
                      , List.Test
                      , List.Bench
+                     , TodoMVC
                      , Todo
                      , Todo.Add
                      , Todo.MarkAllComplete
