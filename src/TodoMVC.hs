@@ -63,6 +63,43 @@ data TodoItem =
 
 makeLenses ''TodoItem
 
+data Filter =
+    FAll
+  | FActive
+  | FComplete
+  deriving (Eq, Ord, Show)
+
+filterShowComplete ::
+  Filter ->
+  Bool ->
+  Bool
+filterShowComplete FAll =
+  const True
+filterShowComplete FActive =
+  not
+filterShowComplete FComplete =
+  id
+
+filterLabel ::
+  Filter ->
+  Text
+filterLabel FAll =
+  "All"
+filterLabel FActive =
+  "Active"
+filterLabel FComplete =
+  "Complete"
+
+filterLink ::
+  Filter ->
+  Text
+filterLink FAll =
+  "#/"
+filterLink FActive =
+  "#/active"
+filterLink FComplete =
+  "#/completed"
+
 data HeaderState (v :: * -> *) =
   HeaderState
   deriving (Eq, Ord, Show)
@@ -107,7 +144,7 @@ markAllComplete initialAllComplete dAll = do
     & checkboxConfig_setValue .~ updated dAll
     & checkboxConfig_attributes .~ pure ("id" =: "toggle-all" <> "class" =: "toggle-all")
   elAttr "label" ("for" =: "toggle-all") $ text "Mark all as complete"
-  pure never
+  pure $ cb ^. checkbox_change
 
 data MainState (v :: * -> *) =
   MainState
@@ -115,17 +152,18 @@ data MainState (v :: * -> *) =
 
 complete ::
   MonadWidget t m =>
-  Bool ->
   Event t Bool ->
   Event t () ->
+  Dynamic t Bool ->
   m (Event t Bool, Event t ())
-complete initial eMarkAllComplete eClearComplete = do
+complete eMarkAllComplete eClearComplete dComplete = do
+  initial <- sample . current $ dComplete
   cb <- checkbox initial $ def
     & checkboxConfig_setValue .~ eMarkAllComplete
     & checkboxConfig_attributes .~ pure ("class" =: "toggle")
 
   let
-    eChange = cb ^. checkbox_change
+    eChange = leftmost [cb ^. checkbox_change, eMarkAllComplete]
     eRemove = gate (current $ cb ^. checkbox_value) eClearComplete
 
   pure (eChange, eRemove)
@@ -151,7 +189,7 @@ todoItemRead ::
   Dynamic t TodoItem ->
   m (Event t (TodoItem -> TodoItem), Event t (), Event t())
 todoItemRead eMarkAllComplete eClearComplete dItem = elClass "div" "view" $ do
-  (eComplete, eRemoveComplete) <- complete False eMarkAllComplete eClearComplete
+  (eComplete, eRemoveComplete) <- complete eMarkAllComplete eClearComplete $ view tiComplete <$> dItem
 
   eEditStart <- textRead $ view tiText <$> dItem
   eRemoveClick <- remove
@@ -166,14 +204,32 @@ todoItemWrite ::
   MonadWidget t m =>
   Dynamic t TodoItem ->
   m (Event t (TodoItem -> TodoItem), Event t (), Event t())
-todoItemWrite dItem = do
+todoItemWrite dItem = mdo
+  initial <- sample . current $ view tiText <$> dItem
   ti <- textInput $ def
     & textInputConfig_attributes .~ pure ("class" =: "edit")
+    & textInputConfig_initialValue .~ initial
+    & textInputConfig_setValue .~ leftmost [eText, updated $ view tiText <$> dItem]
 
   let
-    eChange = set tiText <$> never
-    eRemove = never
-    eEditStop = never
+    bValue = current . fmap Text.strip $ ti ^. textInput_value
+    isKey k = (== k) . keyCodeLookup . fromIntegral
+    eKey = ti ^. textInput_keypress
+
+    eEnter = void $ ffilter (isKey Enter) eKey
+    eBlur = void . ffilter not . updated $ ti ^. textInput_hasFocus
+    eCommit = leftmost [eEnter, eBlur]
+    eAtCommit = Text.strip <$> bValue <@ eCommit
+    eNewText = ffilter (not . Text.null) eAtCommit
+
+    eRollback = void $ ffilter (isKey Escape) eKey
+    eOldText = initial <$ eRollback
+
+    eText = leftmost [eNewText, eOldText]
+    eRemove = void $ ffilter Text.null eAtCommit
+
+    eChange = set tiText <$> eText
+    eEditStop = leftmost [void eCommit, void eRollback]
 
   pure (eChange, eRemove, eEditStop)
 
@@ -181,19 +237,25 @@ todoItem ::
   MonadWidget t m =>
   Event t Bool ->
   Event t () ->
+  Dynamic t Filter ->
   Dynamic t TodoItem ->
   m (Event t (TodoItem -> TodoItem), Event t ())
-todoItem eMarkAllComplete eClearComplete dItem = mdo
+todoItem eMarkAllComplete eClearComplete dFilter dItem = mdo
   let
+    dComplete = view tiComplete <$> dItem
     mkCompleted False = ""
     mkCompleted True = "completed "
-    dCompleted = mkCompleted . view tiComplete <$> dItem
+    dCompleted = mkCompleted <$> dComplete
     mkEditing False = ""
     mkEditing True = "editing "
     dEditing = mkEditing <$> dEdit
+    mkHidden False = "hidden "
+    mkHidden True = ""
+    dMatches = filterShowComplete <$> dFilter <*> dComplete
+    dHidden = mkHidden <$> dMatches
 
   dEdit <- holdDyn False eEdit
-  (eChange, eRemove, eEdit) <- elDynClass "li" (dCompleted <> dEditing) $ mdo
+  (eChange, eRemove, eEdit) <- elDynClass "li" (dCompleted <> dEditing <> dHidden) $ mdo
 
     (eChangeRead, eRemoveRead, eEditStart) <- todoItemRead eMarkAllComplete eClearComplete dItem
     (eChangeWrite, eRemoveWrite, eEditStop) <- todoItemWrite dItem
@@ -213,8 +275,9 @@ todoList ::
   Event t Text ->
   Event t Bool ->
   Event t () ->
+  Dynamic t Filter ->
   m (Dynamic t (Map Int TodoItem))
-todoList initial eAdd eMarkAllComplete eClearComplete = mdo
+todoList initial eAdd eMarkAllComplete eClearComplete dFilter = mdo
   dCount <- count eAdd
   let
     initialCount = (+ 1) . maximum . (0 :) . Map.keys $ initial
@@ -228,7 +291,7 @@ todoList initial eAdd eMarkAllComplete eClearComplete = mdo
           ]
 
   dOut <- elClass "ul" "todo-list" . list dMap $
-    todoItem eMarkAllComplete eClearComplete
+    todoItem eMarkAllComplete eClearComplete dFilter
 
   let
     eChanges = switch . current . fmap (mergeMap . fmap fst) $ dOut
@@ -241,8 +304,9 @@ mainSection ::
   Map Int TodoItem ->
   Event t Text ->
   Event t () ->
+  Dynamic t Filter ->
   m (Dynamic t Int, Dynamic t Bool)
-mainSection initial eAdd eClearComplete = mdo
+mainSection initial eAdd eClearComplete dFilter = mdo
   let
     mkClass 0 = "hidden "
     mkClass _ = ""
@@ -252,7 +316,7 @@ mainSection initial eAdd eClearComplete = mdo
   (dSize, dAny) <- elDynClass "section" dClass $ mdo
       eMarkAllComplete <- markAllComplete initialAllComplete dAll
 
-      dMap <- todoList initial eAdd eMarkAllComplete eClearComplete
+      dMap <- todoList initial eAdd eMarkAllComplete eClearComplete dFilter
 
       let
         dSize = Map.size <$> dMap
@@ -295,12 +359,38 @@ data FooterState (v :: * -> *) =
   FooterState
   deriving (Eq, Ord, Show)
 
+filterWidget ::
+  MonadWidget t m =>
+  Filter ->
+  Dynamic t Filter ->
+  m (Event t Filter)
+filterWidget f dFilter = el "li" $ do
+  let
+    mkClass False = ""
+    mkClass True = "selected"
+    dAttr = ("class" =:) . mkClass . (== f) <$> dFilter
+    sAttr = "href" =: filterLink f
+
+  (e, _) <- elDynAttr' "a" (pure sAttr <> dAttr) $
+    text $ filterLabel f
+  pure $ f <$ domEvent Click e
+
+filtersWidget ::
+  MonadWidget t m =>
+  m (Dynamic t Filter)
+filtersWidget = elClass "ul" "filters" $ mdo
+  eAll <- filterWidget FAll dFilter
+  eActive <- filterWidget FActive dFilter
+  eComplete <- filterWidget FComplete dFilter
+  dFilter <- holdDyn FAll . leftmost $ [eAll, eActive, eComplete]
+  pure dFilter
+
 footer ::
   MonadWidget t m =>
   Bool ->
   Dynamic t Int ->
   Dynamic t Bool ->
-  m (Event t ())
+  m (Dynamic t Filter, Event t ())
 footer initialAnyComplete dSize dAny =
   let
     mkClass 0 = "hidden "
@@ -310,7 +400,9 @@ footer initialAnyComplete dSize dAny =
   in
     elDynClass "footer" dClass $ do
       todoCount dSize
-      clearComplete initialAnyComplete dAny
+      dFilter <- filtersWidget
+      eClearComplete <- clearComplete initialAnyComplete dAny
+      pure (dFilter, eClearComplete)
 
 todomvc :: Map Int TodoItem -> JSM ()
 todomvc initial =
@@ -320,8 +412,8 @@ todomvc initial =
     mainWidgetWithHead headSection $
       elClass "section" "todoapp" $ mdo
         eAdd <- header
-        (dSize, dAny) <- mainSection initial eAdd eClearComplete
-        eClearComplete <- footer initialAnyComplete dSize dAny
+        (dSize, dAny) <- mainSection initial eAdd eClearComplete dFilter
+        (dFilter, eClearComplete) <- footer initialAnyComplete dSize dAny
         pure ()
 
 todomvcExample :: JSM ()
