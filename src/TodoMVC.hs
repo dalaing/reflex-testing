@@ -32,12 +32,12 @@ import Reflex.Dom (run)
 
 import TodoMVC.Types
 import TodoMVC.Common
-import TodoMVC.AddItem
-import TodoMVC.MarkAllComplete
-import TodoMVC.TodoList
-import TodoMVC.TodoCount
-import TodoMVC.Filter
-import TodoMVC.ClearComplete
+import TodoMVC.Component.AddItem
+import TodoMVC.Component.MarkAllComplete
+import TodoMVC.Component.TodoList
+import TodoMVC.Component.TodoCount
+import TodoMVC.Component.Filter
+import TodoMVC.Component.ClearComplete
 
 stylesheet ::
   MonadWidget t m =>

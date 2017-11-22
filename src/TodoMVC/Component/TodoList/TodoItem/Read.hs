@@ -6,7 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module TodoMVC.TodoItem.Read (
+module TodoMVC.Component.TodoList.TodoItem.Read (
     todoItemRead
   ) where
 
@@ -15,9 +15,9 @@ import Control.Lens
 import Reflex.Dom.Core
 
 import TodoMVC.Types
-import TodoMVC.TodoItem.Read.Complete
-import TodoMVC.TodoItem.Read.Text
-import TodoMVC.TodoItem.Read.Remove
+import TodoMVC.Component.TodoList.TodoItem.Read.Complete
+import TodoMVC.Component.TodoList.TodoItem.Read.Text
+import TodoMVC.Component.TodoList.TodoItem.Read.Remove
 
 todoItemRead ::
   MonadWidget t m =>

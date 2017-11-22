@@ -6,7 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module TodoMVC.MarkAllComplete (
+module TodoMVC.Component.MarkAllComplete (
     markAllComplete
   ) where
 

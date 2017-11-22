@@ -27,20 +27,24 @@ library
                      , List.Bench
                      , TodoMVC
                      , TodoMVC.Types
+                     , TodoMVC.Types.TodoItem
+                     , TodoMVC.Types.Filter
                      , TodoMVC.Common
-                     , TodoMVC.TodoItem
-                     , TodoMVC.TodoItem.Read
-                     , TodoMVC.TodoItem.Read.Complete
-                     , TodoMVC.TodoItem.Read.Text
-                     , TodoMVC.TodoItem.Read.Remove
-                     , TodoMVC.TodoItem.Write
-                     , TodoMVC.TodoItem.Write.Text
-                     , TodoMVC.TodoList
-                     , TodoMVC.AddItem
-                     , TodoMVC.MarkAllComplete
-                     , TodoMVC.TodoCount
-                     , TodoMVC.Filter
-                     , TodoMVC.ClearComplete
+                     , TodoMVC.Component.TodoList
+                     , TodoMVC.Component.TodoList.TodoItem
+                     , TodoMVC.Component.TodoList.TodoItem.Read
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Complete
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Text
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Remove
+                     , TodoMVC.Component.TodoList.TodoItem.Write
+                     , TodoMVC.Component.TodoList.TodoItem.Write.Text
+                     , TodoMVC.Component.AddItem
+                     , TodoMVC.Component.MarkAllComplete
+                     , TodoMVC.Component.TodoCount
+                     , TodoMVC.Component.Filter
+                     , TodoMVC.Component.ClearComplete
+                     , TodoMVC.Component.ClearComplete.Test
+                     , TodoMVC.Component.ClearComplete.Test.Harness
   build-depends:       base >=4.9 && <4.10
                      , transformers
                      , mtl

@@ -7,7 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-module TodoMVC.AddItem (
+module TodoMVC.Component.AddItem (
     addItem
   ) where
 

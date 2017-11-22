@@ -7,7 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-module TodoMVC.Filter (
+module TodoMVC.Component.Filter (
     Filter(..)
   , filterShowComplete
   , filtersWidget
@@ -19,22 +19,7 @@ import Data.Text (Text)
 
 import Reflex.Dom.Core
 
-data Filter =
-    FAll
-  | FActive
-  | FComplete
-  deriving (Eq, Ord, Show)
-
-filterShowComplete ::
-  Filter ->
-  Bool ->
-  Bool
-filterShowComplete FAll =
-  const True
-filterShowComplete FActive =
-  not
-filterShowComplete FComplete =
-  id
+import TodoMVC.Types.Filter
 
 filterLabel ::
   Filter ->

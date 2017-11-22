@@ -6,7 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module TodoMVC.ClearComplete (
+module TodoMVC.Component.ClearComplete (
     clearComplete
   ) where
 

@@ -6,7 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module TodoMVC.TodoCount (
+module TodoMVC.Component.TodoCount (
     todoCount
   ) where
 

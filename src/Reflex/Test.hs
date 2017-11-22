@@ -29,6 +29,7 @@ module Reflex.Test (
   , classElementsIx
   , simulateClick
   , readOutput
+  , readOutput'
 
   , hoistCommand
   , ResettableState
@@ -191,20 +192,25 @@ simulateClick eid = do
   pure $ isJust m
 
 readOutput ::
-  Read a =>
+  ( Read a
+  , MonadJSM m
+  , HasDocument m
+  ) =>
   proxy a ->
   Text ->
-  Document ->
-  JSM (Maybe a)
+  MaybeT m a
 readOutput _ =
   readOutput'
 
 readOutput' ::
-  Read a =>
+  ( Read a
+  , MonadJSM m
+  , HasDocument m
+  ) =>
   Text ->
-  Document ->
-  JSM (Maybe a)
-readOutput' eid doc = runMaybeT $ do
+  MaybeT m a
+readOutput' eid = do
+  doc <- lift askDocument
   e <- MaybeT . getElementById doc $ eid
   t <- MaybeT . getTextContent $ e
   MaybeT . pure . readMaybe . Text.unpack $ t
@@ -270,7 +276,7 @@ getResultDone doc = do
   pure $ fromMaybe False mt
 
 testingEnvHook ::
-  (Document -> JSM (Maybe a)) ->
+  (MaybeT TestJSM a) ->
   TestingEnv a ->
   JSM x ->
   JSM x
@@ -281,7 +287,7 @@ testingEnvHook f (TestingEnv tqRender) h = do
   forM_ mDoc $ \doc -> do
     done <- getResultDone doc
     when done $ do
-      ma <- f doc
+      ma <- unTestJSM . runMaybeT $ f
       forM_ ma $
         liftIO . atomically . putTMVar tqRender
 
@@ -291,7 +297,7 @@ testingWidget ::
   ( MonadWidget t m
   , DomRenderHook t m
   ) =>
-  (Document -> JSM (Maybe a)) ->
+  (MaybeT TestJSM a) ->
   TestingEnv a ->
   m () ->
   m ()

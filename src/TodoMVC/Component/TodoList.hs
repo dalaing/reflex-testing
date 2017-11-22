@@ -7,7 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-module TodoMVC.TodoList (
+module TodoMVC.Component.TodoList (
     todoList
   ) where
 
@@ -19,8 +19,7 @@ import Data.Text (Text)
 import Reflex.Dom.Core
 
 import TodoMVC.Types
-import TodoMVC.TodoItem
-import TodoMVC.Filter
+import TodoMVC.Component.TodoList.TodoItem
 
 todoList ::
   MonadWidget t m =>

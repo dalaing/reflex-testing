@@ -7,7 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-module TodoMVC.TodoItem.Write.Text (
+module TodoMVC.Component.TodoList.TodoItem.Write.Text (
     textWrite
   ) where
 

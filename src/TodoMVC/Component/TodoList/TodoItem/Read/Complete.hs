@@ -6,7 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module TodoMVC.TodoItem.Read.Complete (
+module TodoMVC.Component.TodoList.TodoItem.Read.Complete (
     complete
   ) where
 

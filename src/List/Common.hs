@@ -79,20 +79,13 @@ fetchItems = do
     MaybeT . getTextContent $ e
   pure $ Seq.fromList xs
 
-fetchState' ::
+fetchState ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   MaybeT m (ModelState v)
-fetchState' =
-  ModelState <$> fetchText <*> fetchItems
-
-fetchState ::
-  Document ->
-  JSM (Maybe (ModelState v))
 fetchState =
-  unTestJSM .
-  runReaderT (runMaybeT fetchState')
+  ModelState <$> fetchText <*> fetchItems
 
 focusText ::
   ( MonadJSM m

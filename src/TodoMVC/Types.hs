@@ -5,21 +5,9 @@ Maintainer  : dave.laing.80@gmail.com
 Stability   : experimental
 Portability : non-portable
 -}
-{-# LANGUAGE TemplateHaskell #-}
 module TodoMVC.Types (
-    TodoItem(..)
-  , tiComplete
-  , tiText
+    module X
   ) where
 
-import Control.Lens
-
-import Data.Text (Text)
-
-data TodoItem =
-  TodoItem {
-    _tiComplete :: Bool
-  , _tiText :: Text
-  } deriving (Eq, Ord, Show)
-
-makeLenses ''TodoItem
+import TodoMVC.Types.TodoItem as X
+import TodoMVC.Types.Filter as X
