@@ -26,15 +26,21 @@ library
                      , List.Test
                      , List.Bench
                      , TodoMVC
-                     , Todo
-                     , Todo.Add
-                     , Todo.MarkAllComplete
-                     , Todo.ClearComplete
-                     , Todo.Item
-                     , Todo.Item.Remove
-                     , Todo.Item.Complete
-                     , Todo.Item.Text
-                     , Todo.Test
+                     , TodoMVC.Types
+                     , TodoMVC.Common
+                     , TodoMVC.TodoItem
+                     , TodoMVC.TodoItem.Read
+                     , TodoMVC.TodoItem.Read.Complete
+                     , TodoMVC.TodoItem.Read.Text
+                     , TodoMVC.TodoItem.Read.Remove
+                     , TodoMVC.TodoItem.Write
+                     , TodoMVC.TodoItem.Write.Text
+                     , TodoMVC.TodoList
+                     , TodoMVC.AddItem
+                     , TodoMVC.MarkAllComplete
+                     , TodoMVC.TodoCount
+                     , TodoMVC.Filter
+                     , TodoMVC.ClearComplete
   build-depends:       base >=4.9 && <4.10
                      , transformers
                      , mtl

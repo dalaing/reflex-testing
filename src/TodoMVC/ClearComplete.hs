@@ -6,15 +6,28 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module Todo.ClearComplete (
+module TodoMVC.ClearComplete (
     clearComplete
   ) where
 
+import Data.Monoid ((<>))
+
+import Control.Lens
+
 import Reflex.Dom.Core
+
+import TodoMVC.Common
 
 clearComplete ::
   MonadWidget t m =>
   Dynamic t Bool ->
   m (Event t ())
-clearComplete dAny = do
-  pure never
+clearComplete dAny =
+  let
+    mkClass False = "hidden "
+    mkClass True = ""
+    sClass = "clear-completed "
+    dClass = pure sClass <> mkClass <$> dAny
+    dAttrs = ("class" =:) <$> dClass
+  in
+    buttonDynAttr dAttrs "Clear completed"

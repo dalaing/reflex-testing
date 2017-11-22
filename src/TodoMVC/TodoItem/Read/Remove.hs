@@ -6,20 +6,16 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module Todo.Item.Remove (
+module TodoMVC.TodoItem.Read.Remove (
     remove
   ) where
 
 import Reflex.Dom.Core
 
-import Reflex.Helpers
+import TodoMVC.Common
 
 remove ::
   MonadWidget t m =>
   m (Event t ())
 remove =
-  buttonDynAttr (pure $ "class" =: "remove") ""
-
--- helper function to toggle the button
-
--- clicking the button causes the event to fire
+  buttonDynAttr (pure $ "class" =: "destroy") ""

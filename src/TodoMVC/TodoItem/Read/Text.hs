@@ -6,15 +6,20 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-module Todo.MarkAllComplete (
-    markAllComplete
+module TodoMVC.TodoItem.Read.Text (
+    textRead
   ) where
+
+import Control.Monad (void)
+
+import Data.Text (Text)
 
 import Reflex.Dom.Core
 
-markAllComplete ::
+textRead ::
   MonadWidget t m =>
-  Dynamic t Bool ->
-  m (Event t Bool)
-markAllComplete dAll = do
-  pure never
+  Dynamic t Text ->
+  m (Event t ())
+textRead dText = do
+  (e, _) <- el' "label" . dynText $ dText
+  pure . void $ domEvent Dblclick e
