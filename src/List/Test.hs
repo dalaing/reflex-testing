@@ -92,9 +92,9 @@ s_type =
     gen _ =
       Just $ Type <$> Gen.text (Range.linear 1 20) Gen.alphaNum
     execute (Type t) = do
-      void $ focusText
+      void focusText
       void $ typeText t
-      void $ blurText
+      void blurText
       waitForRender
   in
     Command gen execute [
@@ -176,6 +176,8 @@ s_remove =
         0 <= i && i < s ^. msItems . to Seq.length
     , Update $ \s (Remove i) _o ->
         s & msItems %~ \s -> (Seq.take i s) Seq.>< (Seq.drop (i + 1) s)
+        -- broken version to demonstrate
+        -- if i == 0 then s else s & msItems %~ \s -> (Seq.take (i - 1) s) Seq.>< (Seq.drop i s)
     , Ensure $ \before after (Remove i) b -> do
         -- check that the state is in sync
         after === b
@@ -200,19 +202,9 @@ initialState =
 listStateMachine ::
   PropertyT JSM ()
 listStateMachine = do
-  env <- liftIO . atomically $ mkTestingEnv
-  _ <- lift $ do
-    mainWidget $ testingWidget fetchState env $ listWidget
-    unTestJSM . runReaderT resetTest $ env
-
-  let
-    hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
-
-  actions <- forAll $
-    Gen.sequential (Range.linear 1 100) initialResettableState [
-      hoistEnv $ s_reset initialState
-    , hoistEnv $ prismCommand _Running s_type
-    , hoistEnv $ prismCommand _Running s_add
-    , hoistEnv $ prismCommand _Running s_remove
+  env <- lift $ setupResettableWidget fetchState listWidget
+  runSequentialResettable env (Range.linear 1 100) initialState [
+      s_type
+    , s_add
+    , s_remove
     ]
-  PropertyT $ executeSequential initialResettableState actions

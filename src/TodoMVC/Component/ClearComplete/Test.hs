@@ -17,17 +17,19 @@ module TodoMVC.Component.ClearComplete.Test (
   , readClearCompleteDOMState
   ) where
 
-import Control.Monad (forM_)
+import Control.Monad (forM)
 import Data.Maybe (isJust)
 
 import Control.Lens
 
+import Data.Text (Text)
+
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
-import Control.Monad.State (MonadState)
 
 import GHCJS.DOM.Element
 import GHCJS.DOM.HTMLElement
+import qualified GHCJS.DOM.DOMTokenList as DTL
 import GHCJS.DOM.Types (MonadJSM, castTo)
 
 import Reflex.Dom.Core (HasDocument)
@@ -50,19 +52,9 @@ data ClearCompleteDOMState = ClearCompleteDOMState { _ccHidden :: Bool }
 
 makeClassy ''ClearCompleteDOMState
 
-readClearCompleteDOMState ::
-  ( HasClearCompleteDOMState s
-  , MonadState s m
-  , MonadJSM m
-  , HasDocument m
-  ) =>
-  m Bool
+readClearCompleteDOMState :: MaybeT TestJSM ClearCompleteDOMState
 readClearCompleteDOMState = do
-  mb <- runMaybeT $ classElementsSingle "clear-completed" $ \e -> do
-    -- TODO check e for the hidden class
-    pure False
-  forM_ mb $ \b ->
-    ccHidden .= b
-  pure $ isJust mb
-
--- TODO add action here
+  b <- classElementsSingle "clear-completed" $ \e -> lift $ do
+    classes <- getClassList e
+    DTL.contains classes ("hidden" :: Text)
+  pure $ ClearCompleteDOMState b

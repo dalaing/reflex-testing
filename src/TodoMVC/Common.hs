@@ -7,13 +7,32 @@ Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
 module TodoMVC.Common (
-    buttonDynAttr
+    todoMVCHeadSection
+  , buttonDynAttr
   ) where
 
 import Data.Map (Map)
+import qualified Data.Map as Map
+
 import Data.Text (Text)
 
 import Reflex.Dom.Core
+
+stylesheet ::
+  MonadWidget t m =>
+  Text ->
+  m ()
+stylesheet s =
+  elAttr "link" (Map.fromList [("rel", "stylesheet"), ("href", s)]) $
+    pure ()
+
+todoMVCHeadSection ::
+  MonadWidget t m =>
+  m ()
+todoMVCHeadSection = do
+  elAttr "meta" ("charset" =: "utf-8") $
+    pure ()
+  stylesheet "css/index.css"
 
 buttonDynAttr ::
   MonadWidget t m =>

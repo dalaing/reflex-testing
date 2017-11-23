@@ -29,5 +29,6 @@ clearComplete dAny =
     sClass = "clear-completed "
     dClass = pure sClass <> mkClass <$> dAny
     dAttrs = ("class" =:) <$> dClass
-  in
-    buttonDynAttr dAttrs "Clear completed"
+  in do
+    eClick <- buttonDynAttr dAttrs "Clear completed"
+    pure $ gate (current dAny) eClick

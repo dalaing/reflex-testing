@@ -39,22 +39,6 @@ import TodoMVC.Component.TodoCount
 import TodoMVC.Component.Filter
 import TodoMVC.Component.ClearComplete
 
-stylesheet ::
-  MonadWidget t m =>
-  Text ->
-  m ()
-stylesheet s =
-  elAttr "link" (Map.fromList [("rel", "stylesheet"), ("href", s)]) $
-    pure ()
-
-headSection ::
-  MonadWidget t m =>
-  m ()
-headSection = do
-  elAttr "meta" ("charset" =: "utf-8") $
-    pure ()
-  stylesheet "css/index.css"
-
 data HeaderState (v :: * -> *) =
   HeaderState
   deriving (Eq, Ord, Show)
@@ -127,7 +111,7 @@ todomvc ::
   Map Int TodoItem ->
   JSM ()
 todomvc initial =
-  mainWidgetWithHead headSection $
+  mainWidgetWithHead todoMVCHeadSection $
     elClass "section" "todoapp" $ mdo
       eAdd <- header
       (dSize, dAny) <- mainSection initial eAdd eClearComplete dFilter

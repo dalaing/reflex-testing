@@ -19,7 +19,11 @@ module Reflex.Test (
     TestJSM(..)
   , TestingEnv(..)
   , mkTestingEnv
+  , runTestingEnv
+  , liftStateHook
   , testingWidget
+  , setupResettableWidget
+  , setupResettableWidgetWithHeadSection
   , resetTest
   , waitForRender
   , waitForCondition
@@ -32,6 +36,10 @@ module Reflex.Test (
   , readOutput'
 
   , hoistCommand
+  , hoistAction
+  , hoistSequential
+  , sequentialResettable
+  , runSequentialResettable
   , ResettableState
   , initialResettableState
   , _Setup
@@ -57,6 +65,7 @@ import Control.Concurrent.STM hiding (check)
 
 import Control.Monad.Trans (MonadIO, liftIO, lift)
 import Control.Monad.Reader (MonadReader, ReaderT, ask, asks, runReaderT)
+import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Morph (hoist)
 
@@ -69,13 +78,16 @@ import GHCJS.DOM.HTMLCollection
 import GHCJS.DOM.Node
 import GHCJS.DOM.Types (MonadJSM, JSM, askJSM, castTo)
 import Language.Javascript.JSaddle.Monad (runJSaddle)
-import Language.Javascript.JSaddle.Types (MonadJSM(..))
+import Language.Javascript.JSaddle.Types (MonadJSM(..), liftJSM)
 
 import Reflex.Dom.Core hiding (Command, Reset, Element)
 import Reflex.Dom (run)
 
 import Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 import Hedgehog.Internal.Property
+import Hedgehog.Internal.State
 
 import Reflex.Helpers
 
@@ -108,6 +120,13 @@ makeClassy ''TestingEnv
 mkTestingEnv :: STM (TestingEnv a)
 mkTestingEnv =
   TestingEnv <$> newEmptyTMVar
+
+runTestingEnv ::
+  TestingEnv e ->
+  TestT (GenT (ReaderT (TestingEnv e) TestJSM)) a ->
+  TestT (GenT JSM) a
+runTestingEnv env =
+  hoist $ hoist $ unTestJSM . flip runReaderT env
 
 classElements ::
   ( MonadJSM m
@@ -275,6 +294,17 @@ getResultDone doc = do
 
   pure $ fromMaybe False mt
 
+liftStateHook ::
+  Monad m =>
+  StateT s m Bool ->
+  s ->
+  MaybeT m s
+liftStateHook m s = do
+  (b, s') <- lift $ runStateT m s
+  if b
+  then MaybeT $ pure (Just s')
+  else MaybeT $ pure Nothing
+
 testingEnvHook ::
   (MaybeT TestJSM a) ->
   TestingEnv a ->
@@ -304,6 +334,35 @@ testingWidget ::
 testingWidget f e =
   withRenderHook (testingEnvHook f e) .
   testWidget
+
+setupResettableWidget ::
+  ( MonadJSM n
+  , MonadIO n
+  ) =>
+  (MaybeT TestJSM a) ->
+  (forall t m. (MonadWidget t m, DomRenderHook t m) => m ()) ->
+  n (TestingEnv a)
+setupResettableWidget f w = do
+  env <- liftIO . atomically $ mkTestingEnv
+  liftJSM $ do
+    mainWidget $ testingWidget f env $ w
+    unTestJSM . runReaderT resetTest $ env
+  pure env
+
+setupResettableWidgetWithHeadSection ::
+  ( MonadJSM n
+  , MonadIO n
+  ) =>
+  (MaybeT TestJSM a) ->
+  (forall t m. (MonadWidget t m, DomRenderHook t m) => m ()) ->
+  (forall t m. (MonadWidget t m, DomRenderHook t m) => m ()) ->
+  n (TestingEnv a)
+setupResettableWidgetWithHeadSection f h w = do
+  env <- liftIO . atomically $ mkTestingEnv
+  liftJSM $ do
+    mainWidgetWithHead h $ testingWidget f env $ w
+    unTestJSM . runReaderT resetTest $ env
+  pure env
 
 waitForRender ::
   ( MonadReader (TestingEnv a) m
@@ -338,6 +397,20 @@ hoistCommand ::
   Command n m' s
 hoistCommand f (Command gen execute callbacks) =
   Command gen (f . execute) callbacks
+
+hoistAction ::
+  (forall x. m x -> m' x) ->
+  Action m s ->
+  Action m' s
+hoistAction f (Action aInput aOutput aExecute aRequire aUpdate aEnsure) =
+  Action aInput aOutput (f . aExecute) aRequire aUpdate aEnsure
+
+hoistSequential ::
+  (forall x. m x -> m' x) ->
+  Sequential m s ->
+  Sequential m' s
+hoistSequential f (Sequential xs) =
+  Sequential (fmap (hoistAction f) xs)
 
 prismCallback ::
   (forall v. Prism' (s v) (t v)) ->
@@ -420,6 +493,40 @@ s_reset initial =
       , Ensure $ \_before after Reset _b ->
           review _Running initial === after
     ]
+
+sequentialResettable ::
+  ( MonadGen n
+  , MonadTest m
+  , MonadReader (TestingEnv e) m
+  , MonadJSM m
+  , HasDocument m
+  , Typeable e
+  , Eq (state Concrete)
+  , Show (state Concrete)
+  ) =>
+  Range.Range Int ->
+  (forall v. state v) ->
+  [Command n m state] ->
+  n (Sequential m (ResettableState state))
+sequentialResettable range initial commands = do
+  Gen.sequential range initialResettableState $
+    s_reset initial : fmap (prismCommand _Running) commands
+
+runSequentialResettable ::
+  ( Typeable e
+  , Eq (state Concrete)
+  , Show (state Concrete)
+  ) =>
+  TestingEnv e ->
+  Range.Range Int ->
+  (forall v. state v) ->
+  [Command (GenT Identity) (TestT (GenT (ReaderT (TestingEnv e) TestJSM))) state] ->
+  PropertyT JSM ()
+runSequentialResettable env range initial commands = do
+  actions <- forAll $ do
+    s <- sequentialResettable range initial commands
+    pure $ hoistSequential (runTestingEnv env) s
+  PropertyT $ executeSequential initialResettableState actions
 
 propertyJSM ::
   PropertyT JSM () ->
