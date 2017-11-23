@@ -25,7 +25,6 @@ library
                      , List.Common
                      , List.Test
                      , List.Bench
-                     , TodoMVC
                      , TodoMVC.Types
                      , TodoMVC.Types.TodoItem
                      , TodoMVC.Types.Filter
@@ -45,6 +44,10 @@ library
                      , TodoMVC.Component.ClearComplete
                      , TodoMVC.Component.ClearComplete.Test
                      , TodoMVC.Component.ClearComplete.Test.Harness
+                     , TodoMVC.Section.Header
+                     , TodoMVC.Section.Main
+                     , TodoMVC.Section.Footer
+                     , TodoMVC
   build-depends:       base >=4.9 && <4.10
                      , transformers
                      , mtl
