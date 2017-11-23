@@ -10,6 +10,8 @@ Portability : non-portable
 module TodoMVC.Component.Filter (
     Filter(..)
   , filterShowComplete
+  , filterLabel
+  , filterLink
   , filtersWidget
   ) where
 

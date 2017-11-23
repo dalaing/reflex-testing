@@ -14,7 +14,7 @@ data Filter =
     FAll
   | FActive
   | FComplete
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
 
 filterShowComplete ::
   Filter ->

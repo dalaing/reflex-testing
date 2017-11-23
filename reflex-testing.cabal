@@ -38,9 +38,17 @@ library
                      , TodoMVC.Component.TodoList.TodoItem.Write
                      , TodoMVC.Component.TodoList.TodoItem.Write.Text
                      , TodoMVC.Component.AddItem
+                     , TodoMVC.Component.AddItem.Test
+                     , TodoMVC.Component.AddItem.Test.Harness
                      , TodoMVC.Component.MarkAllComplete
+                     , TodoMVC.Component.MarkAllComplete.Test
+                     , TodoMVC.Component.MarkAllComplete.Test.Harness
                      , TodoMVC.Component.TodoCount
+                     , TodoMVC.Component.TodoCount.Test
+                     , TodoMVC.Component.TodoCount.Test.Harness
                      , TodoMVC.Component.Filter
+                     , TodoMVC.Component.Filter.Test
+                     , TodoMVC.Component.Filter.Test.Harness
                      , TodoMVC.Component.ClearComplete
                      , TodoMVC.Component.ClearComplete.Test
                      , TodoMVC.Component.ClearComplete.Test.Harness

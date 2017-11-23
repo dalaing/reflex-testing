@@ -12,6 +12,7 @@ Portability : non-portable
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module TodoMVC.Component.ClearComplete.Test.Harness (
+    clearCompleteStateMachine
   ) where
 
 import Control.Monad (forM)
