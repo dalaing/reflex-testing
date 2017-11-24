@@ -9,8 +9,7 @@ Portability : non-portable
 {-# LANGUAGE TemplateHaskell #-}
 module TodoMVC.Component.TodoCount.Test (
     TodoCountDOMState(..)
-  , tcCount
-  , tcText
+  , HasTodoCountDOMState(..)
   , initialTodoCountDOMState
   , readTodoCountDOMState
   ) where
@@ -46,8 +45,9 @@ readTodoCountDOMState ::
   MaybeT TestJSM TodoCountDOMState
 readTodoCountDOMState =
   classElementsSingle "todo-count" $ \e -> do
-    i <- MaybeT . getFirstChild $ e
-    tc <- MaybeT . getTextContent $ i
+    i1 <- MaybeT . getFirstChild $ e
+    tc <- MaybeT . getTextContent $ i1
     c <- MaybeT . pure . readMaybe . Text.unpack $ tc
-    t <- MaybeT . getTextContent $ e
+    i2 <- MaybeT . getNextSibling $ i1
+    t <- MaybeT . getTextContent $ i2
     pure $ TodoCountDOMState c t

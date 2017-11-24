@@ -60,6 +60,9 @@ initialState ::
 initialState =
   TestState initialTodoCountDOMState
 
+instance HasTodoCountDOMState (TestState v) where
+  todoCountDOMState = tsTodoCount
+
 readTestState :: MaybeT TestJSM (TestState v)
 readTestState =
   TestState <$> readTodoCountDOMState
@@ -88,14 +91,14 @@ s_add =
   in
     Command gen execute [
       Update $ \s TestAdd _o ->
-        s & tsTodoCount . tcText .~
-            (if s ^. tsTodoCount . tcCount == 0
+        s & todoCountDOMState . tcText .~
+            (if s ^. todoCountDOMState . tcCount == 0
              then " item left"
              else " items left")
           & tsTodoCount . tcCount +~ 1
     , Ensure $ \before after TestAdd b -> do
         after === b
-        assert $ before ^. tsTodoCount . tcCount + 1 == after ^. tsTodoCount . tcCount
+        assert $ before ^. todoCountDOMState . tcCount + 1 == after ^. todoCountDOMState . tcCount
     ]
 
 todoCountStateMachine ::

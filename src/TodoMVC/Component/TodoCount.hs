@@ -18,11 +18,9 @@ todoCount ::
   m ()
 todoCount dSize =
   let
-    pluralize 1 = ""
-    pluralize _ = "s"
+    pluralize 1 = " item left"
+    pluralize _ = " items left"
   in
     elClass "span" "todo-count" $ do
       el "strong" $ display dSize
-      text " item"
       dynText $ pluralize <$> dSize
-      text " left"

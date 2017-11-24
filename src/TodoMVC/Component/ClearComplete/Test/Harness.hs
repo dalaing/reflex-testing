@@ -119,10 +119,10 @@ s_toggle =
   in
     Command gen execute [
       Update $ \s TestToggle _o ->
-          s & tsClearComplete . ccHidden %~ not
+          s & clearCompleteDOMState . ccHidden %~ not
     , Ensure $ \before after TestToggle b -> do
         after === b
-        assert $ before ^. tsClearComplete . ccHidden /= after ^. tsClearComplete . ccHidden
+        assert $ before ^. clearCompleteDOMState . ccHidden /= after ^. clearCompleteDOMState . ccHidden
     ]
 
 data ClickClearComplete (v :: * -> *) = ClickClearComplete
@@ -152,12 +152,12 @@ s_clearComplete =
   in
     Command gen execute [
       Require $ \s ClickClearComplete ->
-        not $ s ^. tsClearComplete . ccHidden
+        not $ s ^. clearCompleteDOMState . ccHidden
     , Update $ \s ClickClearComplete _o ->
         s & tsTestCount . _Wrapped +~ 1
     , Ensure $ \before after ClickClearComplete b -> do
         after === b
-        assert $ before ^. tsClearComplete == after ^. tsClearComplete
+        assert $ before ^. clearCompleteDOMState == after ^. clearCompleteDOMState
         assert $ before ^. tsTestCount . _Wrapped + 1 == after ^. tsTestCount . _Wrapped
     ]
 
@@ -188,7 +188,7 @@ s_clearCompleteHidden =
   in
     Command gen execute [
       Require $ \s ClickClearCompleteHidden ->
-        s ^. tsClearComplete . ccHidden
+        s ^. clearCompleteDOMState . ccHidden
     , Update $ \s ClickClearCompleteHidden _o ->
         s
     , Ensure $ \before after ClickClearCompleteHidden b -> do

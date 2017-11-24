@@ -18,6 +18,8 @@ module TodoMVC.Component.Filter.Test.Harness (
 
 import Control.Lens
 
+import qualified Data.Set as Set
+
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe (MaybeT)
 import Control.Monad.Reader (MonadReader)
@@ -62,20 +64,24 @@ readTestFilter = do
 
 data TestState (v :: * -> *) =
   TestState {
-    _tsFilter :: TestFilter
+    _tsFilters :: FiltersDOMState
+  , _tsTestFilter :: TestFilter
   } deriving (Eq, Show)
 
 makeLenses ''TestState
 
 initialState :: TestState v
-initialState = TestState (TestFilter FAll)
+initialState = TestState initialFiltersDOMState (TestFilter FAll)
+
+instance HasFiltersDOMState (TestState v) where
+  filtersDOMState = tsFilters
 
 instance HasTestFilter (TestState v) where
-  testFilter = tsFilter
+  testFilter = tsTestFilter
 
 readTestState :: MaybeT TestJSM (TestState v)
 readTestState =
-  TestState <$> readTestFilter
+  TestState <$> readFiltersDOMState <*> readTestFilter
 
 data ClickFilter (v :: * -> *) = ClickFilter Filter
   deriving (Eq, Show)
@@ -102,10 +108,12 @@ s_filter =
   in
     Command gen execute [
       Update $ \s (ClickFilter f) _o ->
-          TestState $ TestFilter f
+          s & filtersDOMState . fSelected .~ Set.singleton f
+            & tsTestFilter . _Wrapped .~ f
     , Ensure $ \before after (ClickFilter f) b -> do
         after === b
-        after ^. tsFilter . _Wrapped === f
+        after ^. filtersDOMState . fSelected === Set.singleton f
+        after ^. tsTestFilter . _Wrapped === f
     ]
 
 filterStateMachine ::

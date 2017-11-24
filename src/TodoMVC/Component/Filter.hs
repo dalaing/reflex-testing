@@ -23,26 +23,6 @@ import Reflex.Dom.Core
 
 import TodoMVC.Types.Filter
 
-filterLabel ::
-  Filter ->
-  Text
-filterLabel FAll =
-  "All"
-filterLabel FActive =
-  "Active"
-filterLabel FComplete =
-  "Complete"
-
-filterLink ::
-  Filter ->
-  Text
-filterLink FAll =
-  "#/"
-filterLink FActive =
-  "#/active"
-filterLink FComplete =
-  "#/completed"
-
 filterWidget ::
   MonadWidget t m =>
   Filter ->
