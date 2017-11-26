@@ -111,19 +111,8 @@ initialState =
 counterStateMachine ::
   PropertyT JSM ()
 counterStateMachine = do
-  env <- liftIO . atomically $ mkTestingEnv
-  _ <- lift $ do
-    mainWidget $ testingWidget (idElement "count-output" >>= readText (Proxy :: Proxy Int)) env $ counter
-    unTestJSM . runReaderT resetTest $ env
-
-  let
-    hoistEnv = hoistCommand (hoist $ hoist $ unTestJSM . flip runReaderT env)
-
-  actions <- forAll $
-    Gen.sequential (Range.linear 1 100) initialResettableState [
-      hoistEnv $ s_reset initialState
-    , hoistEnv $ prismCommand _Running s_add
-    , hoistEnv $ prismCommand _Running s_clear
+  env <- lift $ setupResettableWidget (idElement "count-output" >>= readText (Proxy :: Proxy Int)) counter
+  runSequentialResettable env (Range.linear 1 100) initialState [
+      s_add
+    , s_clear
     ]
-  PropertyT $ executeSequential initialResettableState actions
-
