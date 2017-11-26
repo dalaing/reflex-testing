@@ -46,7 +46,7 @@ clickClearComplete ::
   ) =>
   m Bool
 clickClearComplete =
-  checkMaybe $ clickButton =<< classElementsSingle "clear-completed"
+  checkMaybe $ classElementsSingle "clear-completed" >>= clickButton
 
 data ClearCompleteDOMState = ClearCompleteDOMState { _ccHidden :: Bool }
   deriving (Eq, Ord, Show, Read)

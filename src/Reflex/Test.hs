@@ -96,7 +96,7 @@ resetTest ::
   m a
 resetTest = do
   void . checkMaybe $
-    clickButton =<< idElement "reset-btn"
+    idElement "reset-btn" >>= clickButton
   waitForRender
 
 setResultDone ::
@@ -106,7 +106,7 @@ setResultDone ::
   m ()
 setResultDone =
   void . checkMaybe $
-    clickButton =<< idElement "result-stop-btn"
+    idElement "result-stop-btn" >>= clickButton
 
 clearResultDone ::
   ( MonadJSM m
@@ -115,7 +115,7 @@ clearResultDone ::
   m ()
 clearResultDone =
   void . checkMaybe $
-    clickButton =<< idElement "result-start-btn"
+    idElement "result-start-btn" >>= clickButton
 
 getResultDone ::
   Document ->

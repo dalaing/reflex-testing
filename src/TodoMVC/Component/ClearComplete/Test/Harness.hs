@@ -62,7 +62,7 @@ clickTestToggle ::
   ) =>
   m Bool
 clickTestToggle =
-  checkMaybe $ clickButton =<< classElementsSingle "test-toggle"
+  checkMaybe $ classElementsSingle "test-toggle" >>= clickButton
 
 newtype TestCount = TestCount { getTestCount :: Int }
   deriving (Eq, Ord, Show, Read)
@@ -77,7 +77,7 @@ instance HasTestCount TestCount where
 
 readTestCount :: MaybeT TestJSM TestCount
 readTestCount = do
-  i <- readText' =<< idElement "test-count"
+  i <- idElement "test-count" >>= readText'
   pure $ TestCount i
 
 data TestState (v :: * -> *) =

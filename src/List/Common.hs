@@ -120,7 +120,7 @@ clickAdd ::
   ) =>
   m Bool
 clickAdd =
-  checkMaybe $ clickButton =<< classElementsSingle "add-button"
+  checkMaybe $ classElementsSingle "add-button" >>= clickButton
 
 clickRemove ::
   ( MonadJSM m
@@ -129,4 +129,4 @@ clickRemove ::
   Word ->
   m Bool
 clickRemove i =
-  checkMaybe $ clickButton =<< classElementsIx "remove-button" i
+  checkMaybe $ classElementsIx "remove-button" i >>= clickButton

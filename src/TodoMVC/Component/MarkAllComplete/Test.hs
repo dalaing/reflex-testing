@@ -46,7 +46,7 @@ clickMarkAllComplete ::
   ) =>
   m Bool
 clickMarkAllComplete =
-  checkMaybe $ clickButton =<< idElement "toggle-all"
+  checkMaybe $ idElement "toggle-all" >>= clickButton
 
 data MarkAllCompleteDOMState = MarkAllCompleteDOMState { _macChecked :: Bool }
   deriving (Eq, Ord, Show, Read)

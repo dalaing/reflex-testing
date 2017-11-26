@@ -63,7 +63,7 @@ clickTestToggle ::
   ) =>
   m Bool
 clickTestToggle =
-  checkMaybe $ clickButton =<< idElement "test-toggle"
+  checkMaybe $ idElement "test-toggle" >>= clickButton
 
 newtype TestComplete = TestComplete { getTestComplete :: Bool }
   deriving (Eq, Ord, Show, Read)
@@ -78,7 +78,7 @@ instance HasTestComplete TestComplete where
 
 readTestComplete :: MaybeT TestJSM TestComplete
 readTestComplete = do
-  b <- readText' =<< idElement "test-complete"
+  b <- idElement "test-complete" >>= readText'
   pure $ TestComplete b
 
 data TestState (v :: * -> *) =

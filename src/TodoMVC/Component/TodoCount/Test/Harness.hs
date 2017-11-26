@@ -50,7 +50,7 @@ clickTestAdd ::
   ) =>
   m Bool
 clickTestAdd =
-  checkMaybe $ clickButton =<< idElement "test-add"
+  checkMaybe $ idElement "test-add" >>= clickButton
 
 data TestState (v :: * -> *) =
   TestState {

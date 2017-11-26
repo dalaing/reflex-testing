@@ -52,7 +52,7 @@ testAdd ::
   ) =>
   m ()
 testAdd = do
-  void . checkMaybe $ clickButton =<< idElement "add-btn"
+  void . checkMaybe $ idElement "add-btn" >>= clickButton
   waitForCondition (== 1)
 
 testClear ::
@@ -63,8 +63,8 @@ testClear ::
   m ()
 testClear = do
   void . checkMaybe $ do
-    clickButton =<< idElement "add-btn"
-    clickButton =<< idElement "clear-btn"
+    idElement "add-btn" >>= clickButton
+    idElement "clear-btn" >>= clickButton
   waitForCondition (== 0)
 
 data BenchToken =
@@ -79,7 +79,7 @@ testLoop ::
   IO ()
 testLoop q t = run . void $ do
   env <- liftIO . atomically $ mkTestingEnv
-  _ <- mainWidget $ testingWidget (readText (Proxy :: Proxy Int) =<< idElement "count-output") env $ counter
+  _ <- mainWidget $ testingWidget (idElement "count-output" >>= readText (Proxy :: Proxy Int)) env $ counter
   unTestJSM . flip runReaderT env $ do
     forever $ do
       resetTest

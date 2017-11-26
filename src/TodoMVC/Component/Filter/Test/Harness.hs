@@ -62,7 +62,7 @@ instance HasTestFilter TestFilter where
 
 readTestFilter :: MaybeT TestJSM TestFilter
 readTestFilter = do
-  f <- readText' =<< idElement "test-filter"
+  f <- idElement "test-filter" >>= readText'
   pure $ TestFilter f
 
 data TestState (v :: * -> *) =

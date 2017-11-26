@@ -69,7 +69,7 @@ s_add =
     gen _ =
       Just $ pure Add
     execute Add = do
-      void . checkMaybe $ clickButton =<< idElement "add-btn"
+      void . checkMaybe $ idElement "add-btn" >>= clickButton
       waitForRender
   in
     Command gen execute [
@@ -92,7 +92,7 @@ s_clear =
     gen _ =
       Just $ pure Clear
     execute Clear = do
-      void . checkMaybe $ clickButton =<< idElement "clear-btn"
+      void . checkMaybe $ idElement "clear-btn" >>= clickButton
       waitForRender
   in
     Command gen execute [
@@ -113,7 +113,7 @@ counterStateMachine ::
 counterStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
-    mainWidget $ testingWidget (readText (Proxy :: Proxy Int) =<< idElement "count-output") env $ counter
+    mainWidget $ testingWidget (idElement "count-output" >>= readText (Proxy :: Proxy Int)) env $ counter
     unTestJSM . runReaderT resetTest $ env
 
   let
