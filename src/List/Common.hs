@@ -54,6 +54,7 @@ import Reflex.Test.Maybe
 import Reflex.Test.Class
 import Reflex.Test.Text
 import Reflex.Test.Button
+import qualified Reflex.Test.TextInput as TI
 
 data ModelState (v :: * -> *) =
   ModelState {
@@ -69,9 +70,7 @@ fetchText ::
   ) =>
   MaybeT m Text
 fetchText =
-  classElementsSingle "add-input" >>= \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ getValue he
+  classElementsSingle "add-input" >>= TI.getTextValue
 
 fetchItems ::
   ( MonadJSM m
@@ -95,18 +94,16 @@ focusText ::
   , HasDocument m
   ) =>
   m Bool
-focusText = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
-  he <- MaybeT $ castTo HTMLInputElement e
-  lift $ focus he
+focusText =
+  checkMaybe $ classElementsSingle "add-input" >>= TI.focusText
 
 blurText ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   m Bool
-blurText = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
-  he <- MaybeT $ castTo HTMLInputElement e
-  lift $ blur he
+blurText =
+  checkMaybe $ classElementsSingle "add-input" >>= TI.blurText
 
 typeText ::
   ( MonadJSM m
@@ -114,33 +111,8 @@ typeText ::
   ) =>
   Text ->
   m Bool
-typeText t = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
-  he <- MaybeT $ castTo HTMLInputElement e
-  lift $ forM_ (Text.unpack t) $ \c -> do
-    val <- liftJSM $ do
-      obj@(JS.Object o) <- JS.create
-      JS.objSetPropertyByName obj ("cancelable" :: Text) True
-      JS.objSetPropertyByName obj ("bubbles" :: Text) True
-      -- TODO characters to keycodes, including handling shift
-      JS.objSetPropertyByName obj ("which" :: Text) (72 :: Int)
-      pure $ pFromJSVal o
-
-    let kei = Just $ KeyboardEventInit val
-
-    keyDown <- newKeyboardEvent ("keydown" :: Text) kei
-    void $ dispatchEvent he keyDown
-
-    keyPress <- newKeyboardEvent ("keypress" :: Text) kei
-    void $ dispatchEvent he keyPress
-
-    t' <- getValue he
-    setValue he $ mconcat [t', Text.pack . pure $ c]
-
-    input <- newKeyboardEvent ("input" :: Text) kei
-    void $ dispatchEvent he input
-
-    keyUp <- newKeyboardEvent ("keyup" :: Text) kei
-    void $ dispatchEvent he keyUp
+typeText t =
+  checkMaybe $ classElementsSingle "add-input" >>= TI.typeText t
 
 clickAdd ::
   ( MonadJSM m
