@@ -38,6 +38,10 @@ import GHCJS.DOM.Types (MonadJSM, castTo)
 import Reflex.Dom.Core (HasDocument)
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Class
+import Reflex.Test.Button
+import Reflex.Test.Text
 
 import TodoMVC.Types.Filter
 
@@ -47,20 +51,17 @@ clickFilter ::
   ) =>
   Filter ->
   m Bool
-clickFilter f = do
-  m <- runMaybeT $ classElementsSingle "filters" $ \e -> do
+clickFilter f =
+  checkMaybe $ classElementsSingle "filters" >>= \e -> do
     links <- lift $ getElementsByTagName e ("a" :: Text)
     l <- getLength links
     forM_ [0..l-1] $ \i -> do
       e' <- MaybeT . item links $ i
-      t <- MaybeT . getTextContent $ e'
+      t <- getText e'
       if (t == filterLabel f)
-      then do
-        he <- MaybeT $ castTo HTMLElement e'
-        lift $ click he
+      then clickButton e'
       else pure ()
     pure ()
-  pure $ isJust m
 
 data FiltersDOMState =
   FiltersDOMState {
@@ -77,13 +78,13 @@ initialFiltersDOMState =
 readFiltersDOMState ::
   MaybeT TestJSM FiltersDOMState
 readFiltersDOMState =
-  classElementsSingle "filters" $ \e -> do
+  classElementsSingle "filters" >>= \e -> do
     links <- lift $ getElementsByTagName e ("a" :: Text)
     l <- getLength links
     s <- forM [0..l-1] $ \i -> do
       e' <- MaybeT . item links $ i
       classes <- getClassList e'
-      t <- MaybeT . getTextContent $ e'
+      t <- getText e'
       f <- MaybeT . pure . parseFilterLabel $ t
       b <- DTL.contains classes ("selected" :: Text)
       pure $ if b

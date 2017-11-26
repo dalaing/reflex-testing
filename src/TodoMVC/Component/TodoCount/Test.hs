@@ -27,6 +27,8 @@ import GHCJS.DOM.Element
 import GHCJS.DOM.Node
 
 import Reflex.Test
+import Reflex.Test.Class
+import Reflex.Test.Text
 
 data TodoCountDOMState =
   TodoCountDOMState {
@@ -44,10 +46,9 @@ initialTodoCountDOMState =
 readTodoCountDOMState ::
   MaybeT TestJSM TodoCountDOMState
 readTodoCountDOMState =
-  classElementsSingle "todo-count" $ \e -> do
+  classElementsSingle "todo-count" >>= \e -> do
     i1 <- MaybeT . getFirstChild $ e
-    tc <- MaybeT . getTextContent $ i1
-    c <- MaybeT . pure . readMaybe . Text.unpack $ tc
+    c <- readText' i1
     i2 <- MaybeT . getNextSibling $ i1
-    t <- MaybeT . getTextContent $ i2
+    t <- getText i2
     pure $ TodoCountDOMState c t

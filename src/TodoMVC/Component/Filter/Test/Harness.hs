@@ -33,6 +33,9 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import Reflex.Test
+import Reflex.Test.Id
+import Reflex.Test.Text
+import Reflex.Test.Hedgehog
 
 import TodoMVC.Common
 import TodoMVC.Component.Filter
@@ -59,7 +62,7 @@ instance HasTestFilter TestFilter where
 
 readTestFilter :: MaybeT TestJSM TestFilter
 readTestFilter = do
-  f <- readOutput' "test-filter"
+  f <- readText' =<< idElement "test-filter"
   pure $ TestFilter f
 
 data TestState (v :: * -> *) =

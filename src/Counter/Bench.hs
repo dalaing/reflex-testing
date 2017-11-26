@@ -29,6 +29,11 @@ import Reflex.Dom (run)
 import Criterion.Main
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Id
+import Reflex.Test.Button
+import Reflex.Test.Text
+
 import Counter
 
 testRender ::
@@ -47,7 +52,7 @@ testAdd ::
   ) =>
   m ()
 testAdd = do
-  simulateClick "add-btn"
+  void . checkMaybe $ clickButton =<< idElement "add-btn"
   waitForCondition (== 1)
 
 testClear ::
@@ -57,8 +62,9 @@ testClear ::
   ) =>
   m ()
 testClear = do
-  simulateClick "add-btn"
-  simulateClick "clear-btn"
+  void . checkMaybe $ do
+    clickButton =<< idElement "add-btn"
+    clickButton =<< idElement "clear-btn"
   waitForCondition (== 0)
 
 data BenchToken =
@@ -73,7 +79,7 @@ testLoop ::
   IO ()
 testLoop q t = run . void $ do
   env <- liftIO . atomically $ mkTestingEnv
-  _ <- mainWidget $ testingWidget (readOutput (Proxy :: Proxy Int) "count-output") env $ counter
+  _ <- mainWidget $ testingWidget (readText (Proxy :: Proxy Int) =<< idElement "count-output") env $ counter
   unTestJSM . flip runReaderT env $ do
     forever $ do
       resetTest

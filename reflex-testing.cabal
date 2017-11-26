@@ -17,6 +17,15 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Reflex.Test
+                     , Reflex.Test.Types
+                     , Reflex.Test.Maybe
+                     , Reflex.Test.Id
+                     , Reflex.Test.Class
+                     , Reflex.Test.Button
+                     , Reflex.Test.Text
+                     , Reflex.Test.Checkbox
+                     , Reflex.Test.TextInput
+                     , Reflex.Test.Hedgehog
                      , Reflex.Helpers
                      , Counter
                      , Counter.Test

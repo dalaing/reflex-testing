@@ -14,6 +14,7 @@ module TodoMVC.Component.ClearComplete.Test (
     clickClearComplete
   , ClearCompleteDOMState(..)
   , HasClearCompleteDOMState(..)
+  , initialClearCompleteDOMState
   , readClearCompleteDOMState
   ) where
 
@@ -35,26 +36,32 @@ import GHCJS.DOM.Types (MonadJSM, castTo)
 import Reflex.Dom.Core (HasDocument)
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Class
+import Reflex.Test.Button
 
 clickClearComplete ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   m Bool
-clickClearComplete = do
-  m <- runMaybeT $ classElementsSingle "clear-completed" $ \e -> do
-    he <- MaybeT $ castTo HTMLElement e
-    lift $ click he
-  pure $ isJust m
+clickClearComplete =
+  checkMaybe $ clickButton =<< classElementsSingle "clear-completed"
 
 data ClearCompleteDOMState = ClearCompleteDOMState { _ccHidden :: Bool }
   deriving (Eq, Ord, Show, Read)
 
 makeClassy ''ClearCompleteDOMState
 
-readClearCompleteDOMState :: MaybeT TestJSM ClearCompleteDOMState
+initialClearCompleteDOMState ::
+  ClearCompleteDOMState
+initialClearCompleteDOMState =
+  ClearCompleteDOMState False
+
+readClearCompleteDOMState ::
+  MaybeT TestJSM ClearCompleteDOMState
 readClearCompleteDOMState = do
-  b <- classElementsSingle "clear-completed" $ \e -> lift $ do
+  b <- classElementsSingle "clear-completed" >>= \e -> lift $ do
     classes <- getClassList e
     DTL.contains classes ("hidden" :: Text)
   pure $ ClearCompleteDOMState b

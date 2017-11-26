@@ -34,6 +34,12 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Id
+import Reflex.Test.Class
+import Reflex.Test.Button
+import Reflex.Test.Text
+import Reflex.Test.Hedgehog
 
 import TodoMVC.Common
 import TodoMVC.Component.ClearComplete
@@ -56,7 +62,7 @@ clickTestToggle ::
   ) =>
   m Bool
 clickTestToggle =
-  simulateClick "test-toggle"
+  checkMaybe $ clickButton =<< classElementsSingle "test-toggle"
 
 newtype TestCount = TestCount { getTestCount :: Int }
   deriving (Eq, Ord, Show, Read)
@@ -71,7 +77,7 @@ instance HasTestCount TestCount where
 
 readTestCount :: MaybeT TestJSM TestCount
 readTestCount = do
-  i <- readOutput' "test-count"
+  i <- readText' =<< idElement "test-count"
   pure $ TestCount i
 
 data TestState (v :: * -> *) =

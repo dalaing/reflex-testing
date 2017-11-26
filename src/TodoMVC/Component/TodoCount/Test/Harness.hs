@@ -27,6 +27,10 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Id
+import Reflex.Test.Button
+import Reflex.Test.Hedgehog
 
 import TodoMVC.Common
 import TodoMVC.Component.TodoCount
@@ -46,7 +50,7 @@ clickTestAdd ::
   ) =>
   m Bool
 clickTestAdd =
-  simulateClick "test-add"
+  checkMaybe $ clickButton =<< idElement "test-add"
 
 data TestState (v :: * -> *) =
   TestState {

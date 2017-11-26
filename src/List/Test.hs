@@ -56,6 +56,7 @@ import Reflex.Dom.Core (mainWidget, Widget, HasDocument)
 import Reflex.Dom (run)
 
 import Reflex.Test
+import Reflex.Test.Hedgehog
 
 import List
 import List.Common

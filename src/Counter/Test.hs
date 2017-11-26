@@ -12,6 +12,7 @@ module Counter.Test (
     counterStateMachine
   ) where
 
+import Control.Monad (void)
 import Data.Proxy (Proxy(..))
 
 import Control.Monad.Trans (lift, MonadIO, liftIO)
@@ -31,6 +32,12 @@ import Reflex.Dom.Core (mainWidget, HasDocument)
 import Reflex.Dom (run)
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Id
+import Reflex.Test.Button
+import Reflex.Test.Text
+import Reflex.Test.Hedgehog
+
 import Counter
 
 data ModelState (v :: * -> *) =
@@ -62,7 +69,7 @@ s_add =
     gen _ =
       Just $ pure Add
     execute Add = do
-      _ <- simulateClick "add-btn"
+      void . checkMaybe $ clickButton =<< idElement "add-btn"
       waitForRender
   in
     Command gen execute [
@@ -85,7 +92,7 @@ s_clear =
     gen _ =
       Just $ pure Clear
     execute Clear = do
-      _ <- simulateClick "clear-btn"
+      void . checkMaybe $ clickButton =<< idElement "clear-btn"
       waitForRender
   in
     Command gen execute [
@@ -106,7 +113,7 @@ counterStateMachine ::
 counterStateMachine = do
   env <- liftIO . atomically $ mkTestingEnv
   _ <- lift $ do
-    mainWidget $ testingWidget (readOutput (Proxy :: Proxy Int) "count-output") env $ counter
+    mainWidget $ testingWidget (readText (Proxy :: Proxy Int) =<< idElement "count-output") env $ counter
     unTestJSM . runReaderT resetTest $ env
 
   let

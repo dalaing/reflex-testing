@@ -50,6 +50,10 @@ import GHCJS.Marshal.Pure (pFromJSVal)
 import qualified Language.Javascript.JSaddle as JS
 
 import Reflex.Test
+import Reflex.Test.Maybe
+import Reflex.Test.Class
+import Reflex.Test.Text
+import Reflex.Test.Button
 
 data ModelState (v :: * -> *) =
   ModelState {
@@ -65,7 +69,7 @@ fetchText ::
   ) =>
   MaybeT m Text
 fetchText =
-  classElementsSingle "add-input" $ \e -> do
+  classElementsSingle "add-input" >>= \e -> do
     he <- MaybeT $ castTo HTMLInputElement e
     lift $ getValue he
 
@@ -75,8 +79,7 @@ fetchItems ::
   ) =>
   MaybeT m (Seq Text)
 fetchItems = do
-  xs <- classElementsMultiple "item-text" $ \e -> do
-    MaybeT . getTextContent $ e
+  xs <- classElementsMultiple "item-text" >>= traverse getText
   pure $ Seq.fromList xs
 
 fetchState ::
@@ -92,22 +95,18 @@ focusText ::
   , HasDocument m
   ) =>
   m Bool
-focusText = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ focus he
-  pure $ isJust m
+focusText = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
+  he <- MaybeT $ castTo HTMLInputElement e
+  lift $ focus he
 
 blurText ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   m Bool
-blurText = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ blur he
-  pure $ isJust m
+blurText = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
+  he <- MaybeT $ castTo HTMLInputElement e
+  lift $ blur he
 
 typeText ::
   ( MonadJSM m
@@ -115,47 +114,41 @@ typeText ::
   ) =>
   Text ->
   m Bool
-typeText t = do
-  m <- runMaybeT $ classElementsSingle "add-input" $ \e -> do
-    he <- MaybeT $ castTo HTMLInputElement e
-    lift $ forM_ (Text.unpack t) $ \c -> do
-      val <- liftJSM $ do
-        obj@(JS.Object o) <- JS.create
-        JS.objSetPropertyByName obj ("cancelable" :: Text) True
-        JS.objSetPropertyByName obj ("bubbles" :: Text) True
-        -- TODO characters to keycodes, including handling shift
-        JS.objSetPropertyByName obj ("which" :: Text) (72 :: Int)
-        pure $ pFromJSVal o
+typeText t = checkMaybe $ classElementsSingle "add-input" >>= \e -> do
+  he <- MaybeT $ castTo HTMLInputElement e
+  lift $ forM_ (Text.unpack t) $ \c -> do
+    val <- liftJSM $ do
+      obj@(JS.Object o) <- JS.create
+      JS.objSetPropertyByName obj ("cancelable" :: Text) True
+      JS.objSetPropertyByName obj ("bubbles" :: Text) True
+      -- TODO characters to keycodes, including handling shift
+      JS.objSetPropertyByName obj ("which" :: Text) (72 :: Int)
+      pure $ pFromJSVal o
 
-      let kei = Just $ KeyboardEventInit val
+    let kei = Just $ KeyboardEventInit val
 
-      keyDown <- newKeyboardEvent ("keydown" :: Text) kei
-      void $ dispatchEvent he keyDown
+    keyDown <- newKeyboardEvent ("keydown" :: Text) kei
+    void $ dispatchEvent he keyDown
 
-      keyPress <- newKeyboardEvent ("keypress" :: Text) kei
-      void $ dispatchEvent he keyPress
+    keyPress <- newKeyboardEvent ("keypress" :: Text) kei
+    void $ dispatchEvent he keyPress
 
-      t' <- getValue he
-      setValue he $ mconcat [t', Text.pack . pure $ c]
+    t' <- getValue he
+    setValue he $ mconcat [t', Text.pack . pure $ c]
 
-      input <- newKeyboardEvent ("input" :: Text) kei
-      void $ dispatchEvent he input
+    input <- newKeyboardEvent ("input" :: Text) kei
+    void $ dispatchEvent he input
 
-      keyUp <- newKeyboardEvent ("keyup" :: Text) kei
-      void $ dispatchEvent he keyUp
-
-  pure $ isJust m
+    keyUp <- newKeyboardEvent ("keyup" :: Text) kei
+    void $ dispatchEvent he keyUp
 
 clickAdd ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   m Bool
-clickAdd = do
-  m <- runMaybeT $ classElementsSingle "add-button" $ \e -> do
-    he <- MaybeT $ castTo HTMLElement e
-    lift $ click he
-  pure $ isJust m
+clickAdd =
+  checkMaybe $ clickButton =<< classElementsSingle "add-button"
 
 clickRemove ::
   ( MonadJSM m
@@ -163,8 +156,5 @@ clickRemove ::
   ) =>
   Word ->
   m Bool
-clickRemove i = do
-  m <- runMaybeT $ classElementsIx i "remove-button" $ \e -> do
-    he <- MaybeT $ castTo HTMLElement e
-    lift $ click he
-  pure $ isJust m
+clickRemove i =
+  checkMaybe $ clickButton =<< classElementsIx "remove-button" i
