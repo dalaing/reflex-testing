@@ -11,7 +11,7 @@ Portability : non-portable
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module TodoMVC.Component.MarkAllComplete.Test (
-    clickMarkAllComplete
+    toggleMarkAllComplete
   , MarkAllCompleteDOMState(..)
   , HasMarkAllCompleteDOMState(..)
   , initialMarkAllCompleteDOMState
@@ -38,15 +38,16 @@ import Reflex.Dom.Core (HasDocument, askDocument)
 import Reflex.Test
 import Reflex.Test.Maybe
 import Reflex.Test.Id
-import Reflex.Test.Button
+import Reflex.Test.Checkbox
 
-clickMarkAllComplete ::
+toggleMarkAllComplete ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   m Bool
-clickMarkAllComplete =
-  checkMaybe $ idElement "toggle-all" >>= clickButton
+toggleMarkAllComplete =
+  checkMaybe $ idElement "toggle-all" >>= \e ->
+    toggleChecked e
 
 data MarkAllCompleteDOMState = MarkAllCompleteDOMState { _macChecked :: Bool }
   deriving (Eq, Ord, Show, Read)
@@ -60,8 +61,7 @@ initialMarkAllCompleteDOMState =
 
 readMarkAllCompleteDOMState ::
   MaybeT TestJSM MarkAllCompleteDOMState
-readMarkAllCompleteDOMState = do
-  doc <- lift askDocument
-  e  <- MaybeT . getElementById doc $ ("toggle-all" :: Text)
-  b <- lift $ hasAttribute e ("checked" :: Text)
-  pure $ MarkAllCompleteDOMState b
+readMarkAllCompleteDOMState =
+  idElement "toggle-all" >>= \e -> do
+    b <- getChecked e
+    pure $ MarkAllCompleteDOMState b

@@ -137,11 +137,11 @@ s_toggle =
         assert $ after ^. markAllCompleteDOMState . macChecked == after ^. testComplete . _Wrapped
     ]
 
-data ClickMarkAllComplete (v :: * -> *) = ClickMarkAllComplete
+data ToggleMarkAllComplete (v :: * -> *) = ToggleMarkAllComplete
   deriving (Eq, Show)
 
-instance HTraversable ClickMarkAllComplete where
-  htraverse _ ClickMarkAllComplete = pure ClickMarkAllComplete
+instance HTraversable ToggleMarkAllComplete where
+  htraverse _ ToggleMarkAllComplete = pure ToggleMarkAllComplete
 
 s_markAllComplete ::
   ( Monad n
@@ -154,17 +154,16 @@ s_markAllComplete ::
   Command n m TestState
 s_markAllComplete =
   let
-    gen _ = Just $ pure ClickMarkAllComplete
-    execute ClickMarkAllComplete = do
-      clickMarkAllComplete
+    gen _ = Just . pure $ ToggleMarkAllComplete
+    execute ToggleMarkAllComplete = do
+      toggleMarkAllComplete
       waitForRender
   in
     Command gen execute [
-      Update $ \s ClickMarkAllComplete _o ->
+      Update $ \s ToggleMarkAllComplete _o ->
         s & markAllCompleteDOMState . macChecked %~ not
-    , Ensure $ \before after ClickMarkAllComplete b -> do
+    , Ensure $ \before after ToggleMarkAllComplete b -> do
         after === b
-        assert $ before ^. markAllCompleteDOMState . macChecked /= after ^. markAllCompleteDOMState . macChecked
         assert $ after ^. markAllCompleteDOMState . macChecked == after ^. testComplete . _Wrapped
     ]
 
