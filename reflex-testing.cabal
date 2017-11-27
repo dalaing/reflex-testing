@@ -42,8 +42,14 @@ library
                      , TodoMVC.Component.TodoList.TodoItem
                      , TodoMVC.Component.TodoList.TodoItem.Read
                      , TodoMVC.Component.TodoList.TodoItem.Read.Complete
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Complete.Test
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Complete.Test.Harness
                      , TodoMVC.Component.TodoList.TodoItem.Read.Text
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Text.Test
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Text.Test.Harness
                      , TodoMVC.Component.TodoList.TodoItem.Read.Remove
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Remove.Test
+                     , TodoMVC.Component.TodoList.TodoItem.Read.Remove.Test.Harness
                      , TodoMVC.Component.TodoList.TodoItem.Write
                      , TodoMVC.Component.TodoList.TodoItem.Write.Text
                      , TodoMVC.Component.AddItem
