@@ -45,11 +45,11 @@ markAllCompleteHarness ::
   MonadWidget t m =>
   m ()
 markAllCompleteHarness = mdo
-  eClick <- buttonDynAttr (pure $ "id" =: "test-toggle") "Toggle"
-  dToggle <- foldDyn ($) False . leftmost $ [
-               not <$ eClick
-             , const <$> eComplete
-             ]
+  eClick <- buttonDynAttr (pure $ "id" =: "test-toggle-btn") "Toggle"
+  dToggle <- toggle False eClick
+  elAttr "div" ("id" =: "test-toggle") $
+    display dToggle
+
   eComplete <- markAllComplete False dToggle
   dComplete <- holdDyn False eComplete
   elAttr "div" ("id" =: "test-complete") $
@@ -63,23 +63,21 @@ clickTestToggle ::
   ) =>
   m Bool
 clickTestToggle =
-  checkMaybe $ idElement "test-toggle" >>= clickButton
+  checkMaybe $ idElement "test-toggle-btn" >>= clickButton
 
-newtype TestComplete = TestComplete { getTestComplete :: Bool }
+data TestComplete = TestComplete {
+    _tcToggle :: Bool
+  , _tcComplete :: Bool
+  }
   deriving (Eq, Ord, Show, Read)
 
-makeWrapped ''TestComplete
-
-class HasTestComplete s where
-  testComplete :: Lens' s TestComplete
-
-instance HasTestComplete TestComplete where
-  testComplete = id
+makeClassy ''TestComplete
 
 readTestComplete :: MaybeT TestJSM TestComplete
 readTestComplete = do
-  b <- idElement "test-complete" >>= readText'
-  pure $ TestComplete b
+  bt <- idElement "test-toggle" >>= readText'
+  bc <- idElement "test-complete" >>= readText'
+  pure $ TestComplete bt bc
 
 data TestState (v :: * -> *) =
   TestState {
@@ -90,7 +88,7 @@ data TestState (v :: * -> *) =
 makeLenses ''TestState
 
 initialState :: TestState v
-initialState = TestState initialMarkAllCompleteDOMState (TestComplete False)
+initialState = TestState initialMarkAllCompleteDOMState (TestComplete False False)
 
 instance HasMarkAllCompleteDOMState (TestState v) where
   markAllCompleteDOMState = tsMarkAllComplete
@@ -126,15 +124,16 @@ s_toggle =
   in
     Command gen execute [
       Update $ \s TestToggle _o ->
-          let old = s ^. testComplete . _Wrapped
+          let old = s ^. tcToggle
               new = not old
           in
-            s & testComplete . _Wrapped .~ new
-              & markAllCompleteDOMState . macChecked .~ new
+            s & tcToggle .~ new
+              & macChecked .~ new
     , Ensure $ \before after TestToggle b -> do
         after === b
-        assert $ before ^. testComplete /= after ^. testComplete
-        assert $ after ^. markAllCompleteDOMState . macChecked == after ^. testComplete . _Wrapped
+        assert $ before ^. tcToggle /= after ^. tcToggle
+        assert $ before ^. tcComplete == after ^. tcComplete
+        assert $ after ^. macChecked == after ^. tcToggle
     ]
 
 data ToggleMarkAllComplete (v :: * -> *) = ToggleMarkAllComplete
@@ -161,10 +160,17 @@ s_markAllComplete =
   in
     Command gen execute [
       Update $ \s ToggleMarkAllComplete _o ->
-        s & markAllCompleteDOMState . macChecked %~ not
+        let
+          old = s ^. macChecked
+          new = not old
+        in
+          s & markAllCompleteDOMState . macChecked .~ new
+            & tcComplete .~ new
     , Ensure $ \before after ToggleMarkAllComplete b -> do
         after === b
-        assert $ after ^. markAllCompleteDOMState . macChecked == after ^. testComplete . _Wrapped
+        assert $ before ^. tcToggle == after ^. tcToggle
+        assert $ before ^. macChecked /= after ^. macChecked
+        assert $ after ^. macChecked == after ^. tcComplete
     ]
 
 markAllCompleteStateMachine ::
