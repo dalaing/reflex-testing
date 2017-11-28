@@ -46,7 +46,7 @@ clickClearComplete ::
   ) =>
   m Bool
 clickClearComplete =
-  checkMaybe $ classElementsSingle "clear-completed" >>= clickButton
+  checkMaybe $ classElementsSingle Nothing "clear-completed" >>= clickButton
 
 data ClearCompleteDOMState = ClearCompleteDOMState { _ccHidden :: Bool }
   deriving (Eq, Ord, Show, Read)
@@ -61,7 +61,7 @@ initialClearCompleteDOMState =
 readClearCompleteDOMState ::
   MaybeT TestJSM ClearCompleteDOMState
 readClearCompleteDOMState = do
-  b <- classElementsSingle "clear-completed" >>= \e -> lift $ do
+  b <- classElementsSingle Nothing "clear-completed" >>= \e -> lift $ do
     classes <- getClassList e
     DTL.contains classes ("hidden" :: Text)
   pure $ ClearCompleteDOMState b

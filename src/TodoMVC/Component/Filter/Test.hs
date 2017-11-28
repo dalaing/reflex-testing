@@ -40,6 +40,7 @@ import Reflex.Dom.Core (HasDocument)
 import Reflex.Test
 import Reflex.Test.Maybe
 import Reflex.Test.Class
+import Reflex.Test.Tag
 import Reflex.Test.Button
 import Reflex.Test.Text
 
@@ -52,11 +53,9 @@ clickFilter ::
   Filter ->
   m Bool
 clickFilter f =
-  checkMaybe $ classElementsSingle "filters" >>= \e -> do
-    links <- lift $ getElementsByTagName e ("a" :: Text)
-    l <- getLength links
-    forM_ [0..l-1] $ \i -> do
-      e' <- MaybeT . item links $ i
+  checkMaybe $ classElementsSingle Nothing "filters" >>= \e -> do
+    links <- tagElementsMultiple (Just e) ("a" :: Text)
+    forM_ links $ \e' -> do
       t <- getText e'
       if (t == filterLabel f)
       then clickButton e'
@@ -78,7 +77,7 @@ initialFiltersDOMState =
 readFiltersDOMState ::
   MaybeT TestJSM FiltersDOMState
 readFiltersDOMState =
-  classElementsSingle "filters" >>= \e -> do
+  classElementsSingle Nothing "filters" >>= \e -> do
     links <- lift $ getElementsByTagName e ("a" :: Text)
     l <- getLength links
     s <- forM [0..l-1] $ \i -> do

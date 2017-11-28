@@ -21,6 +21,7 @@ library
                      , Reflex.Test.Maybe
                      , Reflex.Test.Id
                      , Reflex.Test.Class
+                     , Reflex.Test.Tag
                      , Reflex.Test.Button
                      , Reflex.Test.Text
                      , Reflex.Test.Checkbox

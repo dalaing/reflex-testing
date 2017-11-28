@@ -70,7 +70,7 @@ fetchText ::
   ) =>
   MaybeT m Text
 fetchText =
-  classElementsSingle "add-input" >>= TI.getTextValue
+  classElementsSingle Nothing "add-input" >>= TI.getTextValue
 
 fetchItems ::
   ( MonadJSM m
@@ -78,7 +78,7 @@ fetchItems ::
   ) =>
   MaybeT m (Seq Text)
 fetchItems = do
-  xs <- classElementsMultiple "item-text" >>= traverse getText
+  xs <- classElementsMultiple Nothing "item-text" >>= traverse getText
   pure $ Seq.fromList xs
 
 fetchState ::
@@ -95,7 +95,7 @@ focusText ::
   ) =>
   m Bool
 focusText =
-  checkMaybe $ classElementsSingle "add-input" >>= TI.focusText
+  checkMaybe $ classElementsSingle Nothing "add-input" >>= TI.focusText
 
 blurText ::
   ( MonadJSM m
@@ -103,7 +103,7 @@ blurText ::
   ) =>
   m Bool
 blurText =
-  checkMaybe $ classElementsSingle "add-input" >>= TI.blurText
+  checkMaybe $ classElementsSingle Nothing "add-input" >>= TI.blurText
 
 typeText ::
   ( MonadJSM m
@@ -112,7 +112,7 @@ typeText ::
   Text ->
   m Bool
 typeText t =
-  checkMaybe $ classElementsSingle "add-input" >>= TI.typeText t
+  checkMaybe $ classElementsSingle Nothing "add-input" >>= TI.typeText t
 
 clickAdd ::
   ( MonadJSM m
@@ -120,7 +120,7 @@ clickAdd ::
   ) =>
   m Bool
 clickAdd =
-  checkMaybe $ classElementsSingle "add-button" >>= clickButton
+  checkMaybe $ classElementsSingle Nothing "add-button" >>= clickButton
 
 clickRemove ::
   ( MonadJSM m
@@ -129,4 +129,4 @@ clickRemove ::
   Word ->
   m Bool
 clickRemove i =
-  checkMaybe $ classElementsIx "remove-button" i >>= clickButton
+  checkMaybe $ classElementsIx Nothing "remove-button" i >>= clickButton

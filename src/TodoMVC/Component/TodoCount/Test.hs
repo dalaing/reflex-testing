@@ -46,7 +46,7 @@ initialTodoCountDOMState =
 readTodoCountDOMState ::
   MaybeT TestJSM TodoCountDOMState
 readTodoCountDOMState =
-  classElementsSingle "todo-count" >>= \e -> do
+  classElementsSingle Nothing "todo-count" >>= \e -> do
     i1 <- MaybeT . getFirstChild $ e
     c <- readText' i1
     i2 <- MaybeT . getNextSibling $ i1

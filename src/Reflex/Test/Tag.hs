@@ -5,10 +5,10 @@ Maintainer  : dave.laing.80@gmail.com
 Stability   : experimental
 Portability : non-portable
 -}
-module Reflex.Test.Class (
-    classElementsSingle
-  , classElementsMultiple
-  , classElementsIx
+module Reflex.Test.Tag (
+    tagElementsSingle
+  , tagElementsMultiple
+  , tagElementsIx
   ) where
 
 import Control.Monad (forM)
@@ -20,57 +20,57 @@ import Data.Text (Text)
 
 import Reflex.Dom.Core (HasDocument(..))
 
-import qualified GHCJS.DOM.Document as Document (getElementsByClassName)
+import qualified GHCJS.DOM.Document as Document (getElementsByTagName)
 import GHCJS.DOM.Element (Element)
-import qualified GHCJS.DOM.Element as Element (getElementsByClassName)
+import qualified GHCJS.DOM.Element as Element (getElementsByTagName)
 import GHCJS.DOM.HTMLCollection (HTMLCollection(..), getLength, item)
 import GHCJS.DOM.Types (MonadJSM)
 
-classElements ::
+tagElements ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   Maybe Element ->
   Text ->
   m (Word, HTMLCollection)
-classElements Nothing eclass = do
+tagElements Nothing etag = do
   doc <- askDocument
-  c <- Document.getElementsByClassName doc eclass
+  c <- Document.getElementsByTagName doc etag
   l <- getLength c
   pure (l, c)
-classElements (Just e) eclass = do
-  c <- Element.getElementsByClassName e eclass
+tagElements (Just e) etag = do
+  c <- Element.getElementsByTagName e etag
   l <- getLength c
   pure (l, c)
 
-classElementsSingle ::
+tagElementsSingle ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   Maybe Element ->
   Text ->
   MaybeT m Element
-classElementsSingle mParent eclass = do
-  (l, c) <- lift $ classElements mParent eclass
+tagElementsSingle mParent etag = do
+  (l, c) <- lift $ tagElements mParent etag
   MaybeT $
     if (l /= 1)
     then pure Nothing
     else item c 0
 
-classElementsMultiple ::
+tagElementsMultiple ::
   ( MonadJSM m
   , HasDocument m
   ) =>
   Maybe Element ->
   Text ->
   MaybeT m [Element]
-classElementsMultiple mParent eclass = do
-  (l, c) <- lift $ classElements mParent eclass
+tagElementsMultiple mParent etag = do
+  (l, c) <- lift $ tagElements mParent etag
   if (l == 0)
   then pure []
   else forM [0..l-1] $ MaybeT . item c
 
-classElementsIx ::
+tagElementsIx ::
   ( MonadJSM m
   , HasDocument m
   ) =>
@@ -78,8 +78,8 @@ classElementsIx ::
   Text ->
   Word ->
   MaybeT m Element
-classElementsIx mParent eclass i = do
-  (l, c) <- lift $ classElements mParent eclass
+tagElementsIx mParent etag i = do
+  (l, c) <- lift $ tagElements mParent etag
   MaybeT $
     if (i < 0 || l <= i)
     then pure Nothing

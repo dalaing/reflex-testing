@@ -62,7 +62,7 @@ clickTestToggle ::
   ) =>
   m Bool
 clickTestToggle =
-  checkMaybe $ classElementsSingle "test-toggle" >>= clickButton
+  checkMaybe $ classElementsSingle Nothing "test-toggle" >>= clickButton
 
 newtype TestCount = TestCount { getTestCount :: Int }
   deriving (Eq, Ord, Show, Read)

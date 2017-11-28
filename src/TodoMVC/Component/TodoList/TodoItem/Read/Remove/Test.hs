@@ -23,4 +23,4 @@ clickRemove ::
   ) =>
   m Bool
 clickRemove =
-  checkMaybe $ classElementsSingle "destroy" >>= clickButton
+  checkMaybe $ classElementsSingle Nothing "destroy" >>= clickButton
